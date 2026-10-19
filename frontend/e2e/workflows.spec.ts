@@ -11,8 +11,11 @@ async function api(page: Page, method: string, path: string, data?: unknown) {
 
 test('inbox: rapid capture keeps every task, then Move to date plans it @phone', async ({ page }) => {
   await page.goto('/#todo')
-  await expect(page.getByRole('tab')).toHaveText([/To-Do/, /Calendar/, /Habit Tracker/, /Journal/, /Money/]) // no separate Inbox tab
-  const inbox = page.getByRole('complementary', { name: 'Inbox' })
+  await expect(page.getByRole('tab')).toHaveText([/To-Do/, /Calendar/, /Habit/, /Journal/, /Money/]) // no separate Inbox tab
+  // Laptops: the Inbox is a column on the left. Phones and tablets: an Inbox button opens it full screen.
+  const phone = (page.viewportSize()?.width ?? 1280) < 1024
+  if (phone) await page.getByRole('button', { name: /^Inbox/ }).click()
+  const inbox = phone ? page.getByRole('dialog', { name: 'Inbox' }) : page.getByRole('complementary', { name: 'Inbox' })
   const box = inbox.getByRole('textbox', { name: 'Capture a task' })
   for (const t of ['alpha', 'beta', 'gamma']) {
     await box.fill(`${t} ${run}`)
@@ -28,9 +31,24 @@ test('inbox: rapid capture keeps every task, then Move to date plans it @phone',
   await dialog.getByRole('button', { name: /^Today/ }).click()
   await dialog.getByRole('button', { name: 'Plan', exact: true }).click()
   await expect(dialog).toBeHidden()
+  await expect(inbox.getByText(`alpha ${run}`, { exact: true })).toBeHidden()
+  if (phone) await inbox.getByRole('button', { name: 'Close' }).click()
   await page.getByRole('button', { name: 'Today', exact: true }).click()
   await expect(page.getByLabel(/^Tasks for /).getByText(`alpha ${run}`, { exact: true })).toBeVisible()
-  await expect(inbox.getByText(`alpha ${run}`, { exact: true })).toBeHidden()
+})
+
+test('phone: every section fits the screen, with the tabs at the bottom @phone', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) >= 640, 'Phone sizes only')
+  await page.goto('/#todo')
+  const bar = page.getByRole('tablist', { name: 'Sections' })
+  for (const [tab, check] of [['To-Do', /New task/], ['Calendar', /Timeline/], ['Habits', /habit/i], ['Journal', /Free writing|Entry/], ['Money', /Money available|How many debit/]] as const) {
+    await bar.getByRole('tab', { name: new RegExp(tab) }).click()
+    await expect(page.getByRole('tabpanel')).toContainText(check)
+    const box = await bar.boundingBox()
+    const vh = page.viewportSize()!.height
+    expect(box!.y + box!.height).toBeGreaterThan(vh - 2) // stays on the bottom edge while scrolling
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true) // no sideways scroll
+  }
 })
 
 test('to-do: the Inbox panel is always there and tasks can be dragged onto a day', async ({ page }) => {

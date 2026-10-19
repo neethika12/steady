@@ -13,7 +13,7 @@ export function SplitwiseCard({ data }: { data: MoneySplitwise }) {
   const cur = settings.currency
   const [editing, setEditing] = useState(false)
   return (
-    <div aria-label="Splitwise" role="group" className="min-w-52 flex-1 rounded-xl border border-line bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+    <div aria-label="Splitwise" role="group" className="min-w-60 shrink-0 snap-start rounded-xl border sm:min-w-52 sm:flex-1 sm:shrink border-line bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className="flex items-center gap-2">
         <p className="flex items-center gap-2 text-xs font-medium text-muted">
           <span aria-hidden className="size-2 rounded-full bg-accent" />

@@ -18,7 +18,27 @@ import { TaskHistoryDialog } from './TaskHistory'
  * The Inbox: every active task without a day, always shown beside the planner.
  * Capture here, then drag a task onto a day (or use "Move to date").
  */
-export function TaskInbox() {
+/** Phones and tablets: an "Inbox" button that opens the Inbox full screen. */
+export function InboxButton() {
+  const tasks = useLoad<Task[]>((s) => get('/tasks?view=inbox', s), 'inbox-count')
+  useOnChanged(['tasks'], tasks.reload)
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button className="lg:hidden" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        Inbox{tasks.data ? <span className="ml-1 rounded bg-ink/10 px-1.5 text-xs tabular-nums">{tasks.data.length}</span> : null}
+      </Button>
+      {open && (
+        <div role="dialog" aria-modal="true" aria-label="Inbox" onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
+          className="fixed inset-0 z-40 overflow-y-auto bg-night pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] lg:hidden">
+          <TaskInbox onClose={() => setOpen(false)} />
+        </div>
+      )}
+    </>
+  )
+}
+
+export function TaskInbox({ onClose }: { onClose?: () => void } = {}) {
   const tasks = useLoad<Task[]>((s) => get('/tasks?view=inbox', s), 'inbox-tasks')
   const waiting = useLoad<Plan[]>((s) => get('/plans/needs-decision', s), 'inbox-waiting')
   const [showAll, setShowAll] = useState(false)
@@ -31,8 +51,8 @@ export function TaskInbox() {
   const shown = showAll ? list : list.slice(0, 30)
 
   return (
-    <aside id="task-inbox" aria-label="Inbox"
-      className="order-last flex flex-col bg-night text-white lg:sticky lg:top-0 lg:order-first lg:h-dvh lg:w-80 lg:shrink-0 xl:w-96">
+    <aside id={onClose ? undefined : 'task-inbox'} aria-label={onClose ? undefined : 'Inbox'}
+      className="order-last min-h-full flex flex-col bg-night text-white lg:sticky lg:top-0 lg:order-first lg:h-dvh lg:w-80 lg:shrink-0 xl:w-96">
       <header className="flex flex-col gap-1.5 border-b border-white/10 px-5 pb-5 pt-6 text-white">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold tracking-tight">Inbox</h2>
@@ -40,8 +60,11 @@ export function TaskInbox() {
             <span className="ml-auto rounded-md bg-white/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-white"
               aria-label={`${list.length} tasks without a day`}>{list.length}</span>
           )}
+          {onClose && (
+            <Button size="sm" className="border-white/25 bg-white/10 text-white hover:bg-white/20" onClick={onClose}>Close</Button>
+          )}
         </div>
-        <p className="text-xs leading-relaxed text-white/60">Tasks without a day. Drag one onto a day, or use <span className="text-white/85">Move to date</span>.</p>
+        <p className="text-xs leading-relaxed text-white/60">Tasks without a day. {onClose ? <>Tap <span className="text-white/85">Plan</span> to give one a day and time.</> : <>Drag one onto a day, or use <span className="text-white/85">Move to date</span>.</>}</p>
         <div className="mt-1.5"><QuickCapture onSaved={reload} /></div>
       </header>
       <div className="flex flex-1 flex-col gap-2 px-4 py-4 lg:overflow-y-auto">

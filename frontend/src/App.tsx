@@ -15,12 +15,12 @@ import { AccountMenu, AuthGate } from './features/account/Auth'
 import { useLoad } from './hooks'
 import type { Settings } from './types'
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'todo', label: 'To-Do' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'habits', label: 'Habit Tracker' },
-  { id: 'journal', label: 'Journal' },
-  { id: 'money', label: 'Money' },
+const TABS: { id: TabId; label: string; short: string }[] = [
+  { id: 'todo', label: 'To-Do', short: 'To-Do' },
+  { id: 'calendar', label: 'Calendar', short: 'Calendar' },
+  { id: 'habits', label: 'Habit Tracker', short: 'Habits' },
+  { id: 'journal', label: 'Journal', short: 'Journal' },
+  { id: 'money', label: 'Money', short: 'Money' },
 ]
 
 function tabFromHash(): TabId {
@@ -109,7 +109,7 @@ function Shell() {
     <AppContext.Provider value={value}>
       <div className="flex min-h-dvh flex-col lg:flex-row">
       <div className="min-w-0 flex-1">
-      <div className="mx-auto flex max-w-6xl flex-col px-3 pb-16 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-col px-3 pb-28 sm:px-6 sm:pb-16">
         <header className="flex items-center gap-3 py-4">
           <span aria-hidden className="grid size-8 place-items-center rounded-lg bg-ink text-sm font-bold text-white">S</span>
           <h1 className="text-xl font-semibold tracking-tight">Steady</h1>
@@ -122,9 +122,10 @@ function Shell() {
 
         {!value.settings.timezone_confirmed && <TimezoneBanner settings={value.settings} onDone={settings.reload} />}
 
+        {/* Phones: a tab bar fixed to the bottom of the screen (like an app). Larger screens: sticky at the top. */}
         <nav role="tablist" aria-label="Sections"
-          className="sticky top-0 z-10 -mx-3 mb-5 bg-paper/90 px-3 py-2 backdrop-blur sm:mx-0 sm:px-0">
-          <div className="flex gap-1 overflow-x-auto rounded-xl bg-card p-1 shadow-sm ring-1 ring-line sm:inline-flex">
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur sm:sticky sm:top-0 sm:bottom-auto sm:z-10 sm:mb-5 sm:border-0 sm:bg-paper/90 sm:px-0 sm:py-2">
+          <div className="flex gap-0.5 sm:inline-flex sm:gap-1 sm:rounded-xl sm:bg-card sm:p-1 sm:shadow-sm sm:ring-1 sm:ring-line">
             {TABS.map((t, i) => (
               <button
                 key={t.id}
@@ -136,11 +137,12 @@ function Shell() {
                 tabIndex={tab === t.id ? 0 : -1}
                 onClick={() => goToTab(t.id)}
                 onKeyDown={(e) => onTabKey(e, i)}
-                className={cx('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors sm:flex-none sm:gap-2 sm:px-5 sm:text-[15px]',
-                  tab === t.id ? 'bg-accent text-white shadow-sm' : 'text-ink/70 hover:bg-accent-soft hover:text-accent')}
+                className={cx('flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors sm:flex-none sm:flex-row sm:gap-2 sm:px-5 sm:py-2.5 sm:text-[15px]',
+                  tab === t.id ? 'text-accent sm:bg-accent sm:text-white sm:shadow-sm' : 'text-ink/60 hover:text-accent sm:text-ink/70 sm:hover:bg-accent-soft')}
               >
                 <TabIcon id={t.id} />
-                {t.label}
+                <span className="sm:hidden">{t.short}</span>
+                <span className="hidden sm:inline">{t.label}</span>
               </button>
             ))}
           </div>
@@ -156,7 +158,7 @@ function Shell() {
         </main>
       </div>
       </div>
-      <TaskInbox />
+      <div className="hidden lg:contents"><TaskInbox /></div>
       </div>
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
     </AppContext.Provider>

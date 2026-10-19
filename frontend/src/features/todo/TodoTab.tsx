@@ -7,6 +7,7 @@ import { DateControls } from '../../components/DateBar'
 import { useLoad, useOnChanged } from '../../hooks'
 import type { Day, Week } from '../../types'
 import { DailyPlanDialog } from '../ai/DailyPlanDialog'
+import { InboxButton } from './TaskInbox'
 import { useAiEnabled } from '../ai/AiStatus'
 import { DayStatsSummary } from './DayStatsSummary'
 import { DayBoard } from './DayBoard'
@@ -51,6 +52,7 @@ export function TodoTab() {
         ]} />
         <DateControls step={view === 'week' ? 7 : 1} />
         <div className="ml-auto flex flex-wrap gap-2">
+          <InboxButton />
           {view === 'day' && aiEnabled && <Button onClick={() => setDialog('plan')}>Suggest a plan (AI)</Button>}
           <Button variant="primary" onClick={() => setDialog('new')}>+ New task</Button>
         </div>

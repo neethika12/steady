@@ -80,19 +80,19 @@ export function HeroBanner() {
   const affirmation = AFFIRMATIONS[(dayIndex(today) + offset) % AFFIRMATIONS.length]
   return (
     <section aria-label="Daily affirmation"
-      className="relative mb-5 overflow-hidden rounded-2xl bg-night px-6 py-5 text-white shadow-sm">
+      className="relative mb-4 overflow-hidden rounded-2xl bg-night px-4 py-4 text-white shadow-sm sm:mb-5 sm:px-6 sm:py-5">
       <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-linear-to-l from-accent/35 to-transparent" />
       <div className="relative flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">
             {greeting(settings.timezone)} · {formatLong(today)}
           </p>
-          <p key={affirmation} className="mt-2 animate-fade font-serif text-2xl leading-snug italic text-white sm:text-[1.7rem]">
+          <p key={affirmation} className="mt-1.5 animate-fade font-serif text-xl leading-snug italic text-white sm:mt-2 sm:text-[1.7rem]">
             {affirmation}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Today’s focus</span>
+          <span className="hidden text-xs font-semibold uppercase tracking-[0.14em] text-white/45 sm:inline">Today’s focus</span>
           <Button size="xs" className="border-white/25 bg-white/5 text-white/85 hover:bg-white/15 hover:text-white"
             onClick={() => setOffset((o) => o + 1)}>New quote</Button>
         </div>

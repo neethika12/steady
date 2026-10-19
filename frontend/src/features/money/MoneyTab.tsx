@@ -40,14 +40,17 @@ function Dashboard({ overview }: { overview: MoneyOverview }) {
     <div className="flex flex-col gap-4">
       {/* Accounts */}
       <section aria-label="Accounts" className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-3">
+        {/* Phones: two totals side by side and Net below; accounts scroll sideways. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           <Total label="Money available" hint="All debit accounts" cents={overview.available_cents} cur={cur} tone="text-teal" />
           <Total label="Owed on cards" hint="All credit cards" cents={overview.owed_cents} cur={cur} tone="text-danger" />
-          <Total label="Net" hint="Available − cards + Splitwise get − pay" cents={overview.net_cents} cur={cur} tone="text-ink" />
+          <div className="col-span-2 sm:col-span-1">
+            <Total label="Net" hint="Available − cards + Splitwise get − pay" cents={overview.net_cents} cur={cur} tone="text-ink" />
+          </div>
         </div>
-        <div className="flex flex-wrap items-stretch gap-2">
+        <div className="-mx-3 flex snap-x items-stretch gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           {active.map((a) => (
-            <div key={a.id} className="min-w-44 flex-1 rounded-xl border border-line bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            <div key={a.id} className="min-w-44 shrink-0 snap-start rounded-xl sm:flex-1 sm:shrink border border-line bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
               <p className="flex items-center gap-2 text-xs font-medium text-muted">
                 <span aria-hidden className={cx('size-2 rounded-full', a.type === 'debit' ? 'bg-teal' : 'bg-danger')} />
                 {a.type === 'debit' ? 'Debit' : 'Credit card'}
@@ -60,12 +63,12 @@ function Dashboard({ overview }: { overview: MoneyOverview }) {
             </div>
           ))}
           <SplitwiseCard data={overview.splitwise} />
-          <Button className="self-center" onClick={() => setManage(true)}>Manage accounts</Button>
+          <Button className="shrink-0 self-center" onClick={() => setManage(true)}>Manage accounts</Button>
         </div>
       </section>
 
       <div className="@container">
-        <div className="grid items-start gap-4 @3xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 @3xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
           {/* Add */}
           <Card aria-label="Add money entry">
             <h3 className="mb-3 font-semibold">Add for {formatLong(date)}</h3>
@@ -121,9 +124,9 @@ function Dashboard({ overview }: { overview: MoneyOverview }) {
 
 function Total({ label, hint, cents, cur, tone }: { label: string; hint: string; cents: number; cur: string; tone: string }) {
   return (
-    <div className="rounded-xl border border-line bg-card px-4 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className={cx('mt-1 text-2xl font-semibold tabular-nums', tone)}>{formatMoney(cents, cur)}</p>
+    <div className="h-full rounded-xl border border-line bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:px-4 sm:py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted sm:text-xs">{label}</p>
+      <p className={cx('mt-1 truncate text-lg font-semibold tabular-nums sm:text-2xl', tone)}>{formatMoney(cents, cur)}</p>
       <p className="text-xs text-muted">{hint}</p>
     </div>
   )
