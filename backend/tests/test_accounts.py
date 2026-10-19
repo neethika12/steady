@@ -24,8 +24,20 @@ def fill_account(c):
     return t, h
 
 
+def test_creating_an_account_does_not_sign_in(client):
+    anon = TestClient(app, base_url="https://testserver")
+    r = anon.post("/api/auth/signup", json={"name": "  Ada   Lovelace ", "email": "ada@example.com", "password": "analytical engine"})
+    assert r.status_code == 201 and r.json()["user"]["name"] == "Ada Lovelace"
+    assert "set-cookie" not in r.headers  # no session: the next step is the log-in page
+    assert ok(anon.get("/api/auth/session"))["user"] is None
+    assert anon.get("/api/tasks").status_code == 401
+    ok(anon.post("/api/auth/login", json={"email": "ada@example.com", "password": "analytical engine"}))
+    assert ok(anon.get("/api/auth/session"))["user"]["name"] == "Ada Lovelace"
+
+
 def test_sign_up_log_out_log_in(client):
-    assert ok(client.get("/api/auth/session"))["user"]["email"] == TEST_EMAIL
+    me = ok(client.get("/api/auth/session"))["user"]
+    assert (me["email"], me["name"]) == (TEST_EMAIL, "Test Person")
     assert client.post("/api/auth/logout").status_code == 204
     assert ok(client.get("/api/auth/session"))["user"] is None
     assert client.get("/api/tasks").status_code == 401
@@ -36,9 +48,12 @@ def test_sign_up_log_out_log_in(client):
 
 def test_sign_up_rules(client):
     anon = TestClient(app, base_url="https://testserver")
-    assert anon.post("/api/auth/signup", json={"email": TEST_EMAIL, "password": "another long one"}).status_code == 409
-    assert anon.post("/api/auth/signup", json={"email": "new@example.com", "password": "short"}).status_code == 422
-    assert anon.post("/api/auth/signup", json={"email": "not-an-email", "password": "long enough pw"}).status_code == 422
+    good = {"name": "New Person", "email": "new@example.com", "password": "long enough pw"}
+    assert anon.post("/api/auth/signup", json={**good, "email": TEST_EMAIL}).status_code == 409
+    assert anon.post("/api/auth/signup", json={**good, "password": "short"}).status_code == 422
+    assert anon.post("/api/auth/signup", json={**good, "email": "not-an-email"}).status_code == 422
+    assert anon.post("/api/auth/signup", json={**good, "name": "   "}).status_code == 422
+    assert anon.post("/api/auth/signup", json={k: v for k, v in good.items() if k != "name"}).status_code == 422
     r = client.get("/api/auth/session")
     assert "steady_session" not in r.headers.get("set-cookie", "")  # the cookie value isn't echoed back
 

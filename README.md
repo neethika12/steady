@@ -81,7 +81,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Accounts and privacy
 
-- **Sign up / log in** with an email and a password (at least 10 characters). Passwords are hashed with scrypt and a
+- **Create an account** with your name, email and a password (at least 10 characters); you're then taken to
+  **Log in** with your email filled in (creating an account doesn't sign you in). Passwords are hashed with scrypt and a
   random salt; the session cookie is random, `HttpOnly`, `SameSite=Lax`, HTTPS-only when hosted, and the database
   stores only its SHA-256. Sessions last 30 days (`SESSION_DAYS`).
 - **Every record has an owner** (`user_id`). The app connects to PostgreSQL as the restricted role `steady_app` and
@@ -482,7 +483,7 @@ uses calendar dates, so 23- and 25-hour daylight-saving days are handled correct
 ## Development and tests
 
 ```bash
-# Backend tests (113): run inside Docker against a separate "<db>_test" database
+# Backend tests (114): run inside Docker against a separate "<db>_test" database
 docker compose --profile test run --rm backend-test
 
 # Frontend type check and production build

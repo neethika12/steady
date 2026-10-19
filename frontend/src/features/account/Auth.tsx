@@ -3,7 +3,7 @@ import { ApiError, get, post } from '../../api'
 import { Button, Dialog, ErrorNote, Loading, Segmented, inputClass } from '../../components/ui'
 import { clearDraftsOf, setDraftOwner } from '../journal/draft'
 
-export interface Account { id: string; email: string }
+export interface Account { id: string; name: string | null; email: string }
 interface SessionInfo { user: Account | null; signup_enabled: boolean; min_password_length: number }
 
 const AccountContext = createContext<{ account: Account; signOut: () => Promise<void> } | null>(null)
@@ -53,7 +53,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 function AuthScreen({ info, onDone }: { info: SessionInfo; onDone: () => void }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [created, setCreated] = useState<string | null>(null) // set after creating an account: "now log in"
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -67,9 +69,17 @@ function AuthScreen({ info, onDone }: { info: SessionInfo; onDone: () => void })
     setPending(true)
     setError(null)
     try {
-      await post(signup ? '/auth/signup' : '/auth/login', { email, password })
-      setPassword('')
-      onDone()
+      if (signup) {
+        // Creating an account doesn't sign in: go to Log in, with the email filled in.
+        await post('/auth/signup', { name, email, password })
+        setPassword('')
+        setCreated(name.trim().split(/\s+/)[0])
+        setMode('login')
+      } else {
+        await post('/auth/login', { email, password })
+        setPassword('')
+        onDone()
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
     } finally {
@@ -89,8 +99,20 @@ function AuthScreen({ info, onDone }: { info: SessionInfo; onDone: () => void })
         </div>
         <form onSubmit={submit} className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5 shadow-sm" aria-label={signup ? 'Create account' : 'Log in'}>
           {info.signup_enabled && (
-            <Segmented label="Log in or create an account" value={mode} onChange={(m) => { setMode(m); setError(null) }}
+            <Segmented label="Log in or create an account" value={mode} onChange={(m) => { setMode(m); setError(null); setCreated(null) }}
               options={[{ value: 'login', label: 'Log in' }, { value: 'signup', label: 'Create account' }]} />
+          )}
+          {created !== null && !signup && (
+            <p role="status" className="rounded-lg bg-teal-soft px-3 py-2 text-sm text-teal">
+              Your account is ready{created ? `, ${created}` : ''}. Log in with your email and password.
+            </p>
+          )}
+          {signup && (
+            <div>
+              <label htmlFor={`${id}-name`} className="mb-1.5 block text-sm font-medium">Name</label>
+              <input id={`${id}-name`} required autoComplete="name" maxLength={80} className={inputClass}
+                value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
           )}
           <div>
             <label htmlFor={`${id}-email`} className="mb-1.5 block text-sm font-medium">Email</label>
@@ -99,7 +121,7 @@ function AuthScreen({ info, onDone }: { info: SessionInfo; onDone: () => void })
           </div>
           <div>
             <label htmlFor={`${id}-password`} className="mb-1.5 block text-sm font-medium">Password</label>
-            <input id={`${id}-password`} type="password" required autoComplete={signup ? 'new-password' : 'current-password'}
+            <input id={`${id}-password`} type="password" required autoFocus={created !== null && !signup} autoComplete={signup ? 'new-password' : 'current-password'}
               className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)}
               aria-invalid={tooShort} aria-describedby={signup ? `${id}-hint` : undefined} />
             {signup && <p id={`${id}-hint`} className={tooShort ? 'mt-1 text-xs text-danger' : 'mt-1 text-xs text-muted'}>
@@ -122,15 +144,15 @@ export function AccountMenu() {
   return (
     <div className="relative">
       <Button variant="ghost" size="sm" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}
-        title={account.email}>
+        title={account.name ? `${account.name} (${account.email})` : account.email}>
         <span aria-hidden className="grid size-6 place-items-center rounded-full bg-accent-soft text-xs font-semibold uppercase text-accent">
-          {account.email[0]}
+          {(account.name || account.email)[0]}
         </span>
         <span className="sr-only">Account</span>
       </Button>
       {open && (
         <div role="menu" className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-line bg-card p-1.5 shadow-lg">
-          <p className="truncate px-2.5 py-2 text-xs text-muted">Signed in as <strong className="text-ink">{account.email}</strong></p>
+          <p className="truncate px-2.5 py-2 text-xs text-muted">Signed in as {account.name && <strong className="block truncate text-ink">{account.name}</strong>}<span className={account.name ? 'block truncate' : 'font-semibold text-ink'}>{account.email}</span></p>
           {[
             ['Change password', () => setDialog('password')],
             ['Log out', () => void signOut()],

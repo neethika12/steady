@@ -90,6 +90,7 @@ class User(Timestamps, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     email: Mapped[str | None] = mapped_column(String(254))  # stored lower-case; empty only for the placeholder owner
+    name: Mapped[str | None] = mapped_column(String(80))  # empty for accounts made before names were asked
     password_hash: Mapped[str | None] = mapped_column(String(255))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

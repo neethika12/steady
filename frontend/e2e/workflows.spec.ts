@@ -591,12 +591,21 @@ test.describe('accounts', () => {
   test('each person sees only their own tasks; log out and back in', async ({ page }) => {
     const a = `a-${run}@example.com`, b = `b-${run}@example.com`, pw = 'a long test password'
     const secret = `Secret plan ${run}`
-    const signUp = async (email: string) => {
+    const signUp = async (name: string, email: string) => {
       await page.goto('/')
       await page.getByRole('radio', { name: 'Create account' }).click()
+      await page.getByLabel('Name').fill(name)
       await page.getByLabel('Email').fill(email)
       await page.getByLabel('Password').fill(pw)
       await page.getByRole('button', { name: 'Create account' }).click()
+      // Creating an account doesn't sign in: it goes to Log in with the email already filled in.
+      await expect(page.getByRole('status')).toContainText(`Your account is ready, ${name.split(' ')[0]}`)
+      await expect(page.getByRole('radio', { name: 'Log in' })).toHaveAttribute('aria-checked', 'true')
+      await expect(page.getByLabel('Email')).toHaveValue(email)
+      await expect(page.getByLabel('Password')).toHaveValue('')
+      await expect(page.getByRole('tab', { name: /To-Do/ })).toHaveCount(0)
+      await page.getByLabel('Password').fill(pw)
+      await page.getByRole('button', { name: 'Log in' }).click()
       await expect(page.getByRole('tab', { name: /To-Do/ })).toBeVisible()
     }
     const logOut = async () => {
@@ -604,13 +613,16 @@ test.describe('accounts', () => {
       await page.getByRole('menuitem', { name: 'Log out' }).click()
       await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible()
     }
-    await signUp(a)
+    await signUp('Asha Rao', a)
+    await page.getByRole('button', { name: 'Account' }).click()
+    await expect(page.getByRole('menu')).toContainText('Asha Rao') // the account menu shows the name
+    await page.getByRole('button', { name: 'Account' }).click() // close it
     await page.getByLabel('Capture a task').fill(secret)
     await page.getByLabel('Capture a task').press('Enter')
     await expect(page.getByText(secret)).toBeVisible()
     await logOut()
 
-    await signUp(b)
+    await signUp('Ben Cole', b)
     await expect(page.getByText(secret)).toHaveCount(0) // someone else's task is invisible
     expect(JSON.stringify(await (await page.request.get('/api/tasks?status=all')).json())).not.toContain(secret)
     await logOut()

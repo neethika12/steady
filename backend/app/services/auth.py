@@ -167,7 +167,18 @@ def seed_new_user(db: Session) -> None:
         db.add(FinanceCategory(name=name, kind=kind, sort_order=i))
 
 
-def sign_up(db: Session, email: str, password: str, claim_existing: bool) -> User:
+def normalize_name(name: str) -> str:
+    n = " ".join(name.split())
+    if not n:
+        raise invalid("name", "Enter your name.")
+    if len(n) > 80:
+        raise invalid("name", "That name is too long (80 characters at most).")
+    return n
+
+
+def sign_up(db: Session, name: str, email: str, password: str, claim_existing: bool) -> User:
+    """Create the account. It does not sign in: the person logs in afterwards."""
+    name = normalize_name(name)
     email = normalize_email(email)
     check_new_password(password)
     if db.scalars(select(User).where(User.email == email)).first():
@@ -175,11 +186,11 @@ def sign_up(db: Session, email: str, password: str, claim_existing: bool) -> Use
     if claim_existing:
         owner = db.get(User, OWNER_ID)
         if owner is not None and owner.email is None:  # data from before accounts existed: it becomes yours
-            owner.email, owner.password_hash = email, hash_password(password)
+            owner.name, owner.email, owner.password_hash = name, email, hash_password(password)
             db.flush()
             act_as(db, owner.id)
             return owner
-    user = User(email=email, password_hash=hash_password(password))
+    user = User(name=name, email=email, password_hash=hash_password(password))
     db.add(user)
     db.flush()
     act_as(db, user.id)

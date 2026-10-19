@@ -19,6 +19,10 @@ class Credentials(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class SignUp(Credentials):
+    name: str = Field(min_length=1, max_length=80)
+
+
 class PasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=200)
     new_password: str = Field(min_length=1, max_length=200)
@@ -35,7 +39,7 @@ def _client(request: Request) -> str:
 
 
 def _user_out(u: User) -> dict:
-    return {"id": u.id, "email": u.email}
+    return {"id": u.id, "name": u.name, "email": u.email}
 
 
 def _set_cookie(response: Response, token: str) -> None:
@@ -65,17 +69,16 @@ def session(request: Request, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/signup", status_code=201)
-def sign_up(data: Credentials, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
+def sign_up(data: SignUp, request: Request, db: Session = Depends(get_db)) -> dict:
+    """Creates the account only. No session is started: the person then logs in with it."""
     cfg = get_config()
     if not cfg.signup_enabled:
         raise AppError(403, "signup_closed", "New sign-ups are turned off on this server.")
     ip = _client(request)
     auth.signup_limiter.check(ip)
     auth.signup_limiter.fail(ip)  # counts every attempt: limits mass account creation
-    user = auth.sign_up(db, data.email, data.password, cfg.claim_existing_data)
-    token = auth.create_session(db, user, utc_now(), cfg.session_days)  # real time, never a test clock
+    user = auth.sign_up(db, data.name, data.email, data.password, cfg.claim_existing_data)
     db.commit()
-    _set_cookie(response, token)
     return {"user": _user_out(user)}
 
 
@@ -87,7 +90,7 @@ def log_in(data: Credentials, request: Request, response: Response, db: Session 
     if user is None:
         auth.login_limiter.fail(*keys)
         raise AppError(401, "invalid_login", "That email and password don't match an account.")
-    token = auth.create_session(db, user, utc_now(), get_config().session_days)
+    token = auth.create_session(db, user, utc_now(), get_config().session_days)  # real time, never a test clock
     db.commit()
     _set_cookie(response, token)
     return {"user": _user_out(user)}

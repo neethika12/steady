@@ -106,8 +106,10 @@ TEST_EMAIL, TEST_PASSWORD = "you@example.com", "correct horse battery"
 def new_client(email: str = TEST_EMAIL, password: str = TEST_PASSWORD) -> TestClient:
     """A browser signed in to its own account (HTTPS, so the secure session cookie is sent)."""
     c = TestClient(app, base_url="https://testserver")
-    r = c.post("/api/auth/signup", json={"email": email, "password": password})
+    r = c.post("/api/auth/signup", json={"name": "Test Person", "email": email, "password": password})
     assert r.status_code == 201, r.text
+    r = c.post("/api/auth/login", json={"email": email, "password": password})
+    assert r.status_code == 200, r.text
     return c
 
 
