@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  /* Refined, neutral palette with one confident accent. */
+  --color-paper: #f6f7f9;
+  --color-card: #ffffff;
+  --color-ink: #111827;
+  --color-muted: #6b7280;
+  --color-line: #e5e7eb;
+  --color-accent: #4338ca;      /* deep indigo */
+  --color-accent-soft: #eef2ff;
+  --color-night: #0f172a;       /* Inbox column / hero */
+  --color-night-2: #1e293b;
+  --color-teal: #0f766e;
+  --color-teal-soft: #e6f4f2;
+  --color-sun: #b45309;
+  --color-sun-soft: #fef3e2;
+  --color-warn: #a2560c;
+  --color-warn-soft: #fef3e2;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+
+  --animate-fade: fade 0.4s ease-out;
+  @keyframes fade {
+    0% { opacity: 0; transform: translateY(2px); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* Completing a task: the circle fills, a tick draws itself, a ring pulses out,
+     a line strikes through the title and the card glows briefly. */
+  --animate-check-fill: check-fill 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-check-draw: check-draw 0.4s ease-out 0.12s both;
+  --animate-check-ring: check-ring 0.75s ease-out both;
+  --animate-strike: strike 0.45s cubic-bezier(0.65, 0, 0.35, 1) 0.18s both;
+  --animate-card-glow: card-glow 0.9s ease-out both;
+  @keyframes check-fill {
+    0% { transform: scale(0.7); }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  @keyframes check-draw {
+    0% { stroke-dashoffset: 16; }
+    100% { stroke-dashoffset: 0; }
+  }
+  @keyframes check-ring {
+    0% { transform: scale(0.8); opacity: 0.55; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes strike {
+    0% { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+  }
+  @keyframes card-glow {
+    0% { box-shadow: 0 0 0 0 rgb(67 56 202 / 0.28); }
+    100% { box-shadow: 0 0 0 10px rgb(67 56 202 / 0); }
+  }
+}
+
+html { color: var(--color-ink); background: var(--color-paper); -webkit-font-smoothing: antialiased; }
+body { min-height: 100dvh; background: var(--color-paper); }
+
+/* Visible keyboard focus everywhere. */
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* Strike-through that draws itself across every line of a wrapped title. */
+.strike-draw {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 100% 1.5px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  animation: strike-draw 0.45s cubic-bezier(0.65, 0, 0.35, 1) 0.18s both;
+}
+@keyframes strike-draw {
+  from { background-size: 0% 1.5px; }
+  to { background-size: 100% 1.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

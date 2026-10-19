@@ -1,0 +1,78 @@
+# Steady: local single-user stack.
+# Start everything with:  docker compose up --build
+name: steady
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-steady}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-steady_local_only}
+      POSTGRES_DB: ${POSTGRES_DB:-steady}
+    volumes:
+      # Named volume: data survives restarts, rebuilds and "docker compose down".
+      # It is deleted by "docker compose down -v" and "docker volume rm".
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    # Deliberately no "ports:" entry. PostgreSQL is reachable only by the
+    # backend container, never from this computer's network.
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-steady}:${POSTGRES_PASSWORD:-steady_local_only}@db:5432/${POSTGRES_DB:-steady}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-UTC}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-phi4-mini}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-120}
+      AI_MAX_OUTPUT_TOKENS: ${AI_MAX_OUTPUT_TOKENS:-700}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-1}
+      AI_REQUESTS_PER_MINUTE: ${AI_REQUESTS_PER_MINUTE:-6}
+      # Local use is plain http on 127.0.0.1, so the session cookie can't require HTTPS here.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # The first account created on this computer takes over data from before accounts existed.
+      CLAIM_EXISTING_DATA: ${CLAIM_EXISTING_DATA:-true}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    extra_hosts:
+      # Lets the container reach Ollama running on the host computer.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Runs the backend test suite against a separate "<db>_test" database.
+  #   docker compose --profile test run --rm backend-test
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-steady}:${POSTGRES_PASSWORD:-steady_local_only}@db:5432/${POSTGRES_DB:-steady}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

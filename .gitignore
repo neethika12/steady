@@ -1,0 +1,36 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Personal data: exports, backups, database dumps and files
+exports/
+backups/
+*.sql
+*.sql.gz
+*.dump
+steady-export-*.json
+pgdata/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Browser tests
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+frontend/e2e/.auth/

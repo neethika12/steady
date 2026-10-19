@@ -1,0 +1,11 @@
+[project]
+name = "steady-backend"
+version = "0.1.0"
+description = "Steady: personal productivity API (FastAPI + PostgreSQL)"
+requires-python = ">=3.12"
+# Pinned dependency versions live in requirements.txt / requirements-dev.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx`"]
