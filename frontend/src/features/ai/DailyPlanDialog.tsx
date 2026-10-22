@@ -5,7 +5,7 @@ import { formatLong, formatMinutes, formatShort } from '../../dates'
 import { notifyChanged, useAction, useLoad } from '../../hooks'
 import type { Day, Task } from '../../types'
 import { PRIORITY_LABEL } from '../todo/labels'
-import { AiError, AiLabel, useAiStatus } from './AiStatus'
+import { AiError, AiLabel, useAiStatus, useAiWords } from './AiStatus'
 import { useAiRequest } from './useAiRequest'
 
 interface Row { ref: string; task_id: string; title: string; estimated_minutes: number | null; reason: string; priority: string; deadline: string | null; why?: string }
@@ -26,6 +26,7 @@ export function DailyPlanDialog({ date, onClose }: { date: string; onClose: () =
   const [minutes, setMinutes] = useState(240)
   const ai = useAiRequest<Proposal>()
   const { status } = useAiStatus()
+  const words = useAiWords()
   const [accept, setAccept] = useState<Set<string>>(new Set())
   const apply = useAction()
   const toast = useToast()
@@ -84,7 +85,7 @@ export function DailyPlanDialog({ date, onClose }: { date: string; onClose: () =
             </fieldset>
           </>
         )}
-        {ai.pending && <Spinner label="Thinking locally… this can take 5–20 seconds." />}
+        {ai.pending && <Spinner label={words.hosted ? 'Thinking…' : 'Thinking locally… this can take 5–20 seconds.'} />}
         {ai.error !== null && <AiError error={ai.error} />}
         {ai.data && (
           <>

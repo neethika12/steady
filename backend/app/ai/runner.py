@@ -15,6 +15,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.ai.groq import GroqProvider
 from app.ai.ollama import OllamaProvider
 from app.ai.provider import AIBadOutput, AIProvider, AIUnavailable
 from app.config import get_config
@@ -104,6 +105,8 @@ def default_provider() -> AIProvider:
     cfg = get_config()
     if not cfg.ai_enabled:
         return DisabledProvider()
+    if cfg.ai_provider == "groq":
+        return GroqProvider(cfg.groq_api_key, cfg.groq_model, cfg.ai_timeout_seconds)
     return OllamaProvider(cfg.ollama_base_url, cfg.ollama_model, cfg.ai_timeout_seconds)
 
 
@@ -113,7 +116,7 @@ def get_provider() -> AIProvider:
 
 
 class RateLimiter:
-    """At most ``per_minute`` requests in any 60 seconds, and one at a time."""
+    """At most ``per_minute`` requests in any 60 seconds; one at a time for a local model."""
 
     def __init__(self, per_minute: int) -> None:
         self.per_minute = per_minute
@@ -121,7 +124,7 @@ class RateLimiter:
         self.lock = threading.Lock()
         self.busy = threading.Lock()
 
-    def acquire(self) -> None:
+    def acquire(self, serial: bool = True) -> None:
         with self.lock:
             now = time.monotonic()
             while self.calls and now - self.calls[0] > 60:
@@ -130,19 +133,20 @@ class RateLimiter:
                 wait = int(60 - (now - self.calls[0])) + 1
                 raise AppError(429, "ai_rate_limited",
                                f"AI request limit reached ({self.per_minute} per minute). Try again in about {wait} s.")
-            if not self.busy.acquire(blocking=False):
+            if serial and not self.busy.acquire(blocking=False):
                 raise AppError(429, "ai_busy", "The local model is still working on another request.")
             self.calls.append(now)
 
-    def release(self) -> None:
-        self.busy.release()
+    def release(self, serial: bool = True) -> None:
+        if serial:
+            self.busy.release()
 
 
 limiter = RateLimiter(get_config().ai_requests_per_minute)
 
 
 def unavailable_error(exc: AIUnavailable) -> AppError:
-    return AppError(503, "ai_unavailable", f"Local AI unavailable: {exc.message}", reason=exc.reason)
+    return AppError(503, "ai_unavailable", f"AI unavailable: {exc.message}", reason=exc.reason)
 
 
 def run(
@@ -162,7 +166,8 @@ def run(
     cfg = get_config()
     limit = min(max_tokens or cfg.ai_max_output_tokens, cfg.ai_max_output_tokens)
     attempts = 1 + max(0, cfg.ai_max_retries)
-    limiter.acquire()
+    serial = getattr(provider, "serial", True)  # a local model answers one request at a time
+    limiter.acquire(serial)
     try:
         last_problem = ""
         for attempt in range(1, attempts + 1):
@@ -182,7 +187,7 @@ def run(
                                 else "it did not match the required format")
                 log.warning("ai feature=%s attempt=%d outcome=rejected kind=%s", feature, attempt, type(exc).__name__)
         raise AppError(502, "ai_invalid",
-                       f"The local model's answer was rejected ({last_problem}), so nothing is shown. "
+                       f"The AI's answer was rejected ({last_problem}), so nothing is shown. "
                        "You can try again; nothing was changed.")
     finally:
-        limiter.release()
+        limiter.release(serial)

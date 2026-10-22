@@ -5,7 +5,7 @@ import { formatMinutes } from '../../dates'
 import { useAction } from '../../hooks'
 import type { Task } from '../../types'
 import { SplitEditor, stepsPayload, type StepDraft } from '../todo/SplitEditor'
-import { AiError, AiLabel, useAiStatus } from './AiStatus'
+import { AiError, AiLabel, useAiStatus, useAiWords } from './AiStatus'
 import { useAiRequest } from './useAiRequest'
 
 interface Proposal {
@@ -21,6 +21,7 @@ export function BreakdownDialog({ task, onClose, onApplied }: {
 }) {
   const ai = useAiRequest<Proposal>()
   const { status } = useAiStatus()
+  const words = useAiWords()
   const [steps, setSteps] = useState<StepDraft[]>([])
   const apply = useAction()
 
@@ -49,11 +50,11 @@ export function BreakdownDialog({ task, onClose, onApplied }: {
         <p className="rounded-lg bg-paper p-3"><span className="text-muted">Task:</span> {task.title}</p>
         {!ai.data && !ai.pending && (
           <p className="text-muted">
-            Only this task’s title, description and estimate are sent to the local model
-            {status ? ` (${status.model})` : ''} on this computer. Nothing is created until you accept.
+            Only this task’s title, description and estimate are sent {words.to}
+            {status ? ` (${status.model})` : ''}. Nothing is created until you accept.
           </p>
         )}
-        {ai.pending && <Spinner label="Thinking locally… this can take 5–20 seconds." />}
+        {ai.pending && <Spinner label={words.hosted ? 'Thinking…' : 'Thinking locally… this can take 5–20 seconds.'} />}
         {ai.error !== null && <AiError error={ai.error} />}
         {ai.data && (
           <>

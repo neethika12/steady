@@ -13,6 +13,7 @@ from app.ai.provider import AIBadOutput, AIUnavailable
 
 class OllamaProvider:
     name = "ollama"
+    serial = True  # one local model: one request at a time
 
     def __init__(self, base_url: str, model: str, timeout_seconds: float) -> None:
         self.base_url = base_url

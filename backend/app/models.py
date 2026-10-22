@@ -126,6 +126,16 @@ class Owned:
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), server_default=CURRENT_USER, index=True)
 
 
+class AiUsage(Owned, Base):
+    """One AI request (feature and time only), for the optional per-person daily limit."""
+
+    __tablename__ = "ai_usage"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    feature: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"))
+
+
 class AppSettings(Timestamps, Base):
     """One row of preferences per user."""
 

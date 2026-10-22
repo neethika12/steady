@@ -5,7 +5,7 @@ import { useApp } from '../../context'
 import { formatShort } from '../../dates'
 import { useAction, useLoad } from '../../hooks'
 import type { JournalListItem } from '../../types'
-import { AiError, AiLabel, useAiEnabled, useAiStatus } from './AiStatus'
+import { AiError, AiLabel, useAiEnabled, useAiStatus, useAiWords } from './AiStatus'
 import { useAiRequest } from './useAiRequest'
 
 interface Preview {
@@ -25,6 +25,7 @@ export function JournalSummary() {
   const loadPreview = useAction()
   const ai = useAiRequest<Result>()
   const { status } = useAiStatus()
+  const words = useAiWords()
 
   const toggle = (d: string) => {
     setPreview(null); setAgreed(false); ai.reset()
@@ -64,16 +65,16 @@ export function JournalSummary() {
                 ))}
               </ul>
               <p className="mt-1">Fields: {preview.fields_sent.join(', ')}. Not sent: {preview.not_sent.join(', ')}.</p>
-              <p className="mt-1 text-muted">It stays on this computer and the result is not saved.</p>
+              <p className="mt-1 text-muted">{words.hosted ? 'Groq doesn’t keep or train on it, and the result is not saved.' : 'It stays on this computer and the result is not saved.'}</p>
               <label className="mt-2 flex items-center gap-2">
                 <input type="checkbox" className="size-4 accent-accent" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-                I want to share these entries with the local model
+                I want to share these entries with {words.hosted ? 'Groq’s AI service' : 'the local model'}
               </label>
               <Button size="sm" variant="primary" className="mt-2" disabled={!agreed} pending={ai.pending}
                 onClick={() => ai.run(() => post<Result>('/ai/journal-summary', { dates: chosen, confirm_share: true }))}>Summarise</Button>
             </div>
           )}
-          {ai.pending && <Spinner label="Thinking locally…" />}
+          {ai.pending && <Spinner label={words.thinking} />}
           {ai.error !== null && <AiError error={ai.error} />}
           {ai.data && (
             <div className="flex flex-col gap-2">

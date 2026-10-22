@@ -35,7 +35,7 @@ def test_unavailable_ai_returns_clear_503_and_core_features_still_work(client, a
     t = task(client, "Write report")
     r = client.post("/api/ai/breakdown", json={"task_id": t["id"]})
     assert r.status_code == 503
-    assert r.json()["detail"]["message"].startswith("Local AI unavailable")
+    assert r.json()["detail"]["message"].startswith("AI unavailable")
     ok(client.post("/api/tasks", json={"title": "still works"}), 201)  # non-AI features unaffected
 
 
@@ -320,3 +320,90 @@ def test_money_review_caps_cuts_to_essentials(client, ai, clock):
     cut = ok(client.post("/api/ai/money-review"))["cut_back"][0]
     assert (cut["category"], cut["reduce_pct"], cut["saving_monthly_cents"]) == ("Health", 10, 1_200)
     assert cut["text"] == "Compare prices to spend 10% less."  # the text matches the capped figure
+
+
+# ---- hosted AI (Groq) and the per-person daily limit ----
+
+PROMPTS = {"prompts": ["What felt light today?", "What do you want to remember?", "What can wait?"]}
+
+
+def test_daily_ai_limit_is_per_person_and_counts_only_real_requests(client, ai, monkeypatch):
+    import dataclasses
+
+    from app.routers import ai as ai_router
+    from tests.conftest import new_client
+    cfg = dataclasses.replace(ai_router.get_config(), ai_daily_limit_per_user=2)
+    monkeypatch.setattr(ai_router, "get_config", lambda: cfg)
+    # Nothing to summarise: the model isn't asked, so it doesn't count.
+    assert client.post("/api/ai/reasons-summary", json={"start": "2026-03-01", "end": "2026-03-02"}).status_code == 422
+    ai.replies = [PROMPTS, PROMPTS]
+    ok(client.post("/api/ai/journal-prompts", json={"focus": "day"}))
+    ok(client.post("/api/ai/journal-prompts", json={"focus": "day"}))
+    s = ok(client.get("/api/ai/status"))
+    assert (s["daily_limit"], s["used_today"]) == (2, 2)
+    r = client.post("/api/ai/journal-prompts", json={"focus": "day"})
+    assert r.status_code == 429 and r.json()["detail"]["code"] == "ai_daily_limit"
+    assert len(ai.prompts) == 2  # the third was refused before reaching the model
+    with new_client("someone@example.com", "someone else's pw") as other:  # their own allowance
+        ai.replies = [PROMPTS]
+        ok(other.post("/api/ai/journal-prompts", json={"focus": "day"}))
+
+
+class _Reply:
+    def __init__(self, status, body):
+        self.status_code, self._body = status, body
+
+    def json(self):
+        return self._body
+
+
+def test_groq_adapter_sends_a_strict_schema_and_reads_the_answer(monkeypatch):
+    import json as _json
+
+    from app.ai import groq
+    from app.ai.provider import AIBadOutput, AIUnavailable
+    sent = {}
+
+    def post(url, json, headers, timeout):
+        sent.update(url=url, body=json, headers=headers)
+        return _Reply(200, {"choices": [{"finish_reason": "stop", "message": {"content": _json.dumps(PROMPTS)}}]})
+
+    monkeypatch.setattr(groq.httpx, "post", post)
+    p = groq.GroqProvider("test-key", "openai/gpt-oss-20b", 30)
+    schema = {"type": "object", "properties": {"prompts": {"type": "array", "minItems": 3, "maxItems": 3,
+                                                           "items": {"type": "string", "minLength": 5}}},
+              "required": ["prompts"], "additionalProperties": False}
+    assert p.generate_json(system="s", prompt="p", schema=schema, max_tokens=200) == PROMPTS
+    fmt = sent["body"]["response_format"]
+    assert fmt["type"] == "json_schema" and fmt["json_schema"]["strict"] is True
+    assert "minItems" not in str(fmt) and "minLength" not in str(fmt)  # lengths are checked by the app afterwards
+    assert sent["headers"]["Authorization"] == "Bearer test-key" and sent["url"].endswith("/chat/completions")
+    assert p.serial is False  # a hosted service can answer several people at once
+
+    monkeypatch.setattr(groq.httpx, "post", lambda *a, **k: _Reply(429, {}))
+    try:
+        p.generate_json(system="s", prompt="p", schema=schema, max_tokens=200)
+        raise AssertionError("expected AIUnavailable")
+    except AIUnavailable as e:
+        assert e.reason == "busy"
+    monkeypatch.setattr(groq.httpx, "post", lambda *a, **k: _Reply(200, {"choices": [{"finish_reason": "length", "message": {"content": "{"}}]}))
+    try:
+        p.generate_json(system="s", prompt="p", schema=schema, max_tokens=200)
+        raise AssertionError("expected AIBadOutput")
+    except AIBadOutput:
+        pass
+    assert groq.GroqProvider("", "m", 30).status()["reason"] == "not_configured"
+
+
+def test_server_picks_the_ai_provider_from_settings(monkeypatch):
+    import dataclasses
+
+    from app.ai import runner
+    from app.config import get_config
+    for setting, expected in ((dict(ai_provider="groq", groq_api_key="k"), "groq"), (dict(ai_provider="ollama"), "ollama"),
+                              (dict(ai_enabled=False), "disabled")):
+        cfg = dataclasses.replace(get_config(), **setting)
+        monkeypatch.setattr(runner, "get_config", lambda cfg=cfg: cfg)
+        runner.default_provider.cache_clear()
+        assert runner.default_provider().name == expected
+    runner.default_provider.cache_clear()

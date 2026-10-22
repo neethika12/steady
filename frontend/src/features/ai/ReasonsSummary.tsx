@@ -1,7 +1,7 @@
 import { post } from '../../api'
 import { Button, Spinner } from '../../components/ui'
 import { formatShort } from '../../dates'
-import { AiError, AiLabel, useAiEnabled, useAiStatus } from './AiStatus'
+import { AiError, AiLabel, useAiEnabled, useAiStatus, useAiWords } from './AiStatus'
 import { ObservationsAndSuggestions, type Point } from './Insight'
 import { useAiRequest } from './useAiRequest'
 
@@ -11,18 +11,19 @@ export function ReasonsSummary({ start, end, available }: { start: string; end: 
   const ai = useAiRequest<Result>()
   const { status } = useAiStatus()
   const enabled = useAiEnabled()
+  const words = useAiWords()
   if (!available || !enabled) return null
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
       {!ai.data && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" pending={ai.pending} onClick={() => ai.run(() => post<Result>('/ai/reasons-summary', { start, end }))}>
-            Summarise reasons with local AI
+            Summarise reasons with {words.name}
           </Button>
-          <span className="text-xs text-muted">Sends the date, task title, tag and your written reason (first 160 characters) for these records, to the model on this computer.</span>
+          <span className="text-xs text-muted">Sends the date, task title, tag and your written reason (first 160 characters) for these records, {words.to}.</span>
         </div>
       )}
-      {ai.pending && <Spinner label="Thinking locally…" />}
+      {ai.pending && <Spinner label={words.thinking} />}
       {ai.error !== null && <AiError error={ai.error} />}
       {ai.data && (
         <>

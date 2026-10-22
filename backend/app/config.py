@@ -21,6 +21,10 @@ class Config:
     claim_existing_data: bool
     session_days: int
     ai_enabled: bool
+    ai_provider: str
+    groq_api_key: str
+    groq_model: str
+    ai_daily_limit_per_user: int
     migrate_on_start: bool
 
 
@@ -64,6 +68,12 @@ def get_config() -> Config:
         session_days=int(env.get("SESSION_DAYS", "30")),
         # Hosted servers usually can't run a local model; AI_ENABLED=false hides the AI features.
         ai_enabled=_flag(env.get("AI_ENABLED"), True),
+        # "ollama" (a model on this computer) or "groq" (hosted; needs GROQ_API_KEY).
+        ai_provider=env.get("AI_PROVIDER", "ollama").strip().lower(),
+        groq_api_key=env.get("GROQ_API_KEY", "").strip(),
+        groq_model=env.get("GROQ_MODEL", "openai/gpt-oss-20b").strip(),
+        # AI requests each person may make per 24 hours (0 = no limit, the default locally).
+        ai_daily_limit_per_user=int(env.get("AI_DAILY_LIMIT_PER_USER", "0")),
         # Serverless hosts have no start script: apply pending migrations on the first request.
         migrate_on_start=_flag(env.get("MIGRATE_ON_START"), False),
     )

@@ -1,6 +1,6 @@
 import { post } from '../../api'
 import { Button, Spinner } from '../../components/ui'
-import { AiError, AiLabel, useAiEnabled, useAiStatus } from './AiStatus'
+import { AiError, AiLabel, useAiEnabled, useAiStatus, useAiWords } from './AiStatus'
 import { ObservationsAndSuggestions, type Point } from './Insight'
 import { useAiRequest } from './useAiRequest'
 
@@ -10,18 +10,19 @@ export function HabitReview({ start, end, available }: { start: string; end: str
   const ai = useAiRequest<Result>()
   const { status } = useAiStatus()
   const enabled = useAiEnabled()
+  const words = useAiWords()
   if (!available || !enabled) return null
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line p-3">
       {!ai.data && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" pending={ai.pending} onClick={() => ai.run(() => post<Result>('/ai/habit-review', { start, end }))}>
-            Review habits with local AI
+            Review habits with {words.name}
           </Button>
-          <span className="text-xs text-muted">Sends habit names, schedules and the numbers above. No journal or task data.</span>
+          <span className="text-xs text-muted">Sends habit names, schedules and the numbers above {words.to}. No journal or task data.</span>
         </div>
       )}
-      {ai.pending && <Spinner label="Thinking locally…" />}
+      {ai.pending && <Spinner label={words.thinking} />}
       {ai.error !== null && <AiError error={ai.error} />}
       {ai.data && (
         <>

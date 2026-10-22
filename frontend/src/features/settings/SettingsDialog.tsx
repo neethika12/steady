@@ -76,12 +76,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="flex flex-col gap-3">
-          <h3 className="font-semibold">Local AI</h3>
+          <h3 className="font-semibold">AI</h3>
           <AiStatusPanel />
         </section>
 
         <Notice>
-          Steady runs in single-user local mode with no login. Keep it on this computer; don’t expose it to the internet.
+          Your data is private to your account. To leave, use the account menu (top right): <em>Delete account</em>
+          removes everything. Download an export first if you want a copy.
         </Notice>
       </div>
     </Dialog>

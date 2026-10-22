@@ -31,6 +31,13 @@ from app.services import tasks as task_service
 _PRIORITY = {"high": 0, "medium": 1, "low": 2}
 
 
+def destination() -> str:
+    """Where AI requests go, in plain words (shown before journal entries are shared)."""
+    if runner.default_provider().name == "groq":
+        return "Groq's AI service (it doesn't keep or train on what's sent)"
+    return "the local Ollama model on this computer"
+
+
 def _clip(text: str, n: int) -> str:
     text = " ".join((text or "").split())
     return text if len(text) <= n else text[: n - 1] + "…"
@@ -420,7 +427,7 @@ def journal_share_preview(db: Session, dates: list[date]) -> dict:
     return {"entries": items,
             "fields_sent": ["free writing", "reflection answers", "mood (1-5)", "energy (1-5)"],
             "not_sent": ["any other day", "tasks", "habits", "settings"],
-            "destination": "the local Ollama model on this computer"}
+            "destination": destination()}
 
 
 class _Theme(BaseModel):

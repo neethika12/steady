@@ -2,7 +2,7 @@ import { get, post } from '../../api'
 import { Button, Card, ErrorNote, Loading, Spinner, cx } from '../../components/ui'
 import { useApp } from '../../context'
 import { useLoad, useOnChanged } from '../../hooks'
-import { AiError, AiLabel, useAiEnabled, useAiStatus } from '../ai/AiStatus'
+import { AiError, AiLabel, useAiEnabled, useAiStatus, useAiWords } from '../ai/AiStatus'
 import { useAiRequest } from '../ai/useAiRequest'
 import { formatMoney } from './money'
 
@@ -33,7 +33,7 @@ const monthName = (ym: string, long = false) =>
   new Intl.DateTimeFormat(undefined, { month: long ? 'long' : 'short', year: long ? 'numeric' : undefined, timeZone: 'UTC' })
     .format(new Date(`${ym}-01T00:00:00Z`))
 
-/** Money insights: trends calculated by the app, plus optional saving tips from the local AI. */
+/** Money insights: trends calculated by the app, plus optional saving tips from the AI. */
 export function MoneyInsights() {
   const { settings } = useApp()
   const cur = settings.currency
@@ -41,6 +41,7 @@ export function MoneyInsights() {
   useOnChanged(['money'], data.reload)
   const ai = useAiRequest<Review>()
   const { status } = useAiStatus()
+  const words = useAiWords()
   const aiEnabled = useAiEnabled()
   const t = data.data
   const months = t?.months.filter((m) => m.tracked) ?? []
@@ -115,12 +116,12 @@ export function MoneyInsights() {
           {!ai.data && (
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="primary" pending={ai.pending} onClick={() => ai.run(() => post<Review>('/ai/money-review'))}>
-                Get saving tips with local AI
+                Get saving tips with {words.name}
               </Button>
-              <span className="text-xs text-muted">Sends monthly and category totals and repeating bill names. No notes, account names or balances.</span>
+              <span className="text-xs text-muted">Sends monthly and category totals and repeating bill names {words.to}. No notes, account names or balances.</span>
             </div>
           )}
-          {ai.pending && <Spinner label="Thinking locally…" />}
+          {ai.pending && <Spinner label={words.thinking} />}
           {ai.error !== null && <AiError error={ai.error} />}
           {ai.data && (
             <div className="flex flex-col gap-4 text-sm">
