@@ -121,7 +121,7 @@ function Shell() {
         <RecoveryReminder />
         <HeroBanner />
 
-        {!value.settings.timezone_confirmed && <TimezoneBanner settings={value.settings} onDone={settings.reload} />}
+        <TimezoneBanner settings={value.settings} onDone={settings.reload} />
 
         {/* Phones: a tab bar fixed to the bottom of the screen (like an app). Larger screens: sticky at the top. */}
         <nav role="tablist" aria-label="Sections"
@@ -166,22 +166,38 @@ function Shell() {
   )
 }
 
+/** Calendar days must follow the person's own time zone, or "today" can be a different date from
+ *  theirs (and, for example, a habit starting today counts as not started yet). An account still on
+ *  the server default switches to this device's time zone by itself, and says so. */
 function TimezoneBanner({ settings, onDone }: { settings: Settings; onDone: () => void }) {
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const [applied, setApplied] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const save = async (body: object) => {
     setPending(true)
     try { await put('/settings', body); onDone() } finally { setPending(false) }
   }
+  const tried = useRef(false)
+  useEffect(() => {
+    if (tried.current || settings.timezone_confirmed || !browserTz) return
+    tried.current = true
+    put('/settings', browserTz === settings.timezone ? { timezone_confirmed: true } : { timezone: browserTz })
+      .then(() => { if (browserTz !== settings.timezone) setApplied(browserTz); onDone() })
+      .catch(() => { /* the banner below still lets them choose */ })
+  }, [settings.timezone, settings.timezone_confirmed, browserTz, onDone])
+
+  if (applied) {
+    return (
+      <div role="status" className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card px-4 py-3 text-sm">
+        <span className="flex-1">Calendar days now follow this device’s time zone, <strong>{applied}</strong>. You can change it in Settings.</span>
+        <Button size="sm" variant="ghost" onClick={() => setApplied(null)}>OK</Button>
+      </div>
+    )
+  }
+  if (settings.timezone_confirmed || browserTz) return null
   return (
     <div role="region" aria-label="Timezone" className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card px-4 py-3 text-sm">
-      <span className="flex-1">
-        Calendar days follow <strong>{settings.timezone}</strong>.
-        {browserTz && browserTz !== settings.timezone && <> This device reports <strong>{browserTz}</strong>.</>}
-      </span>
-      {browserTz && browserTz !== settings.timezone && (
-        <Button size="sm" variant="primary" pending={pending} onClick={() => save({ timezone: browserTz })}>Use {browserTz}</Button>
-      )}
+      <span className="flex-1">Calendar days follow <strong>{settings.timezone}</strong>. If that’s not your time zone, change it in Settings.</span>
       <Button size="sm" pending={pending} onClick={() => save({ timezone_confirmed: true })}>Keep {settings.timezone}</Button>
     </div>
   )

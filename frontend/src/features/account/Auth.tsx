@@ -103,7 +103,8 @@ function AuthScreen({ info, onDone }: { info: SessionInfo; onDone: () => void })
     try {
       if (signup) {
         // Creating an account doesn't sign in: show the recovery code, then go to Log in.
-        const r = await post<{ recovery_code: string }>('/auth/signup', { name, email, password })
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone // so "today" is the person's today
+        const r = await post<{ recovery_code: string }>('/auth/signup', { name, email, password, timezone })
         const first = name.trim().split(/\s+/)[0]
         setNewCode({ code: r.recovery_code, intro: `Your account is ready${first ? `, ${first}` : ''}. Here’s your recovery code, in case you ever forget your password:`,
           then: 'Log in with your email and password.' })

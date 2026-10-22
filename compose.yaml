@@ -38,6 +38,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # The first account created on this computer takes over data from before accounts existed.
       CLAIM_EXISTING_DATA: ${CLAIM_EXISTING_DATA:-true}
+      SIGNUP_LIMIT_PER_HOUR: ${SIGNUP_LIMIT_PER_HOUR:-10}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     extra_hosts:

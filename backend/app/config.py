@@ -25,6 +25,7 @@ class Config:
     groq_api_key: str
     groq_model: str
     ai_daily_limit_per_user: int
+    signup_limit_per_hour: int
     migrate_on_start: bool
 
 
@@ -74,6 +75,8 @@ def get_config() -> Config:
         groq_model=env.get("GROQ_MODEL", "openai/gpt-oss-20b").strip(),
         # AI requests each person may make per 24 hours (0 = no limit, the default locally).
         ai_daily_limit_per_user=int(env.get("AI_DAILY_LIMIT_PER_USER", "0")),
+        # New accounts per hour from one address (raised only for the automated browser tests).
+        signup_limit_per_hour=int(env.get("SIGNUP_LIMIT_PER_HOUR", "10")),
         # Serverless hosts have no start script: apply pending migrations on the first request.
         migrate_on_start=_flag(env.get("MIGRATE_ON_START"), False),
     )

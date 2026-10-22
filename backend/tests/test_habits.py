@@ -168,3 +168,15 @@ def test_habit_validation(client):
     assert client.post("/api/habits", json=bad).status_code == 422
     bad = {"name": "X", "schedule": {"schedule_type": "weekly_target"}}
     assert client.post("/api/habits", json=bad).status_code == 422
+
+
+
+def test_a_habit_starting_later_is_listed_but_cant_be_checked_in_yet(client):
+    h = ok(client.post("/api/habits", json={"name": "Swim", "start_date": "2026-03-04",
+                                             "schedule": {"schedule_type": "daily"}}), 201)
+    d = ok(client.get("/api/habits/day?date=2026-03-02"))
+    item = next(i for i in d["other"] if i["habit"]["id"] == h["id"])
+    assert item["status"] == "not_started" and item["habit"]["start_date"] == "2026-03-04"
+    assert d["progress"]["scheduled"] == 0  # not counted before it starts
+    r = client.put(f"/api/habits/{h['id']}/checkins/2026-03-02", json={"value": 1})
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "before_start"

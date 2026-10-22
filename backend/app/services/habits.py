@@ -413,6 +413,14 @@ def day_view(db: Session, ctx: Ctx, day: date) -> dict:
             scheduled.append(item)
         else:
             other.append(item)
+    # Habits that start after this day are listed too (as not started), so a habit created with a
+    # later start date doesn't seem to vanish; it can't be checked in until its first day.
+    for h in _load(db):
+        if h.start_date > day and h.archived_on is None:
+            first = h.schedules[0] if h.schedules else None
+            other.append({"habit": habit_out(h, ctx.today), "status": "not_started", "value": None,
+                          "target_value": first.target_value if first else None,
+                          "schedule_type": first.schedule_type if first else None, "streak": None, "week": None})
     done = sum(1 for i in scheduled if i["status"] == "done")
     return {
         "date": day,

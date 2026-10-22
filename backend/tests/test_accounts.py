@@ -231,3 +231,15 @@ def test_a_new_recovery_code_needs_the_password(client):
     code = ok(client.post("/api/auth/recovery-code", json={"password": TEST_PASSWORD}))["recovery_code"]
     anon = TestClient(app, base_url="https://testserver")
     ok(anon.post("/api/auth/reset-password", json={"email": TEST_EMAIL, "recovery_code": code, "new_password": "brand new password"}))
+
+
+def test_new_accounts_use_the_device_time_zone(client):
+    anon = TestClient(app, base_url="https://testserver")
+    ok(anon.post("/api/auth/signup", json={"name": "Tia", "email": "tia@example.com", "password": "tia password 1",
+                                          "timezone": "Asia/Kolkata"}), 201)
+    ok(anon.post("/api/auth/login", json={"email": "tia@example.com", "password": "tia password 1"}))
+    s = ok(anon.get("/api/settings"))
+    assert (s["timezone"], s["timezone_confirmed"]) == ("Asia/Kolkata", True)
+    # A made-up zone is ignored (the account starts on the server default and is asked later).
+    ok(anon.post("/api/auth/signup", json={"name": "Zed", "email": "zed@example.com", "password": "zed password 1",
+                                          "timezone": "Mars/Olympus"}), 201)

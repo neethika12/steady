@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
+from app.config import get_config
 from app.errors import AppError, conflict, invalid
 from app.models import AuthAttempt, AuthSession, FinanceCategory, User
 
@@ -126,7 +127,7 @@ class AttemptLimiter:
 
 
 login_limiter = AttemptLimiter("login", limit=8, window=15 * 60)
-signup_limiter = AttemptLimiter("signup", limit=10, window=60 * 60)
+signup_limiter = AttemptLimiter("signup", limit=get_config().signup_limit_per_hour, window=60 * 60)
 reset_limiter = AttemptLimiter("reset", limit=5, window=15 * 60)
 
 

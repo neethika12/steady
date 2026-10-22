@@ -515,7 +515,7 @@ docker compose --profile test run --rm backend-test
 cd frontend && npm ci && npm run typecheck && npm run build
 
 # Browser tests (Playwright) against the separate steady-e2e stack, never your data
-FRONTEND_PORT=5174 BACKEND_PORT=8001 docker compose -p steady-e2e up -d --build --wait
+FRONTEND_PORT=5174 BACKEND_PORT=8001 SIGNUP_LIMIT_PER_HOUR=1000 docker compose -p steady-e2e up -d --build --wait
 cd frontend && npx playwright install chromium && npm run test:e2e
 
 # Frontend dev server with hot reload (proxies /api to the backend on :8000)

@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.config import get_config
 from app.db import get_db
 from app.errors import AppError
-from app.models import User
+from app.models import AppSettings, User
+from app.timeutil import is_valid_timezone
 from app.services import auth
 from app.timeutil import utc_now
 
@@ -22,6 +23,7 @@ class Credentials(BaseModel):
 
 class SignUp(Credentials):
     name: str = Field(min_length=1, max_length=80)
+    timezone: str | None = Field(default=None, max_length=64)  # the device's, so "today" matches the person's day
 
 
 class PasswordChange(BaseModel):
@@ -85,6 +87,8 @@ def sign_up(data: SignUp, request: Request, db: Session = Depends(get_db)) -> di
     auth.signup_limiter.check(db, ip)
     auth.signup_limiter.fail(db, ip)  # counts every attempt: limits mass account creation
     user = auth.sign_up(db, data.name, data.email, data.password, cfg.claim_existing_data)
+    if data.timezone and is_valid_timezone(data.timezone) and db.scalars(select(AppSettings)).first() is None:
+        db.add(AppSettings(timezone=data.timezone, timezone_confirmed=True))  # the new account's own settings row
     code = auth.new_recovery_code(user)
     db.commit()
     # Shown once, so the person can reset their password later without email.

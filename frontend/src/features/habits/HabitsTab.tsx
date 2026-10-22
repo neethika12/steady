@@ -20,6 +20,7 @@ const STATUS: Record<string, { label: string; tone: 'accent' | 'warn' | 'danger'
   extra: { label: 'Extra', tone: 'accent' },
   open: { label: 'No session', tone: 'neutral' },
   future: { label: 'Upcoming', tone: 'neutral' },
+  not_started: { label: 'Not started yet', tone: 'neutral' },
   inactive: { label: 'Inactive', tone: 'neutral' },
 }
 
@@ -66,7 +67,7 @@ export function HabitsTab() {
           )}
           {d.other.length > 0 && (
             <Card aria-label="Other habits">
-              <h3 className="mb-1 font-semibold">Not scheduled or paused today</h3>
+              <h3 className="mb-1 font-semibold">Not scheduled, paused or not started yet</h3>
               <p className="mb-3 text-sm text-muted">Nothing here counts as missed. You can still log an extra check-in.</p>
               <ul className="flex flex-col gap-2">{d.other.map((i) => <HabitRow key={i.habit.id} item={i} date={date} future={future} onEdit={setEditing} onChanged={day.reload} />)}</ul>
             </Card>
@@ -85,7 +86,8 @@ export function HabitsTab() {
 function HabitRow({ item, date, future, onEdit, onChanged }: {
   item: HabitDayItem; date: string; future: boolean; onEdit: (h: Habit) => void; onChanged: () => void
 }) {
-  const s = STATUS[item.status] ?? STATUS.inactive
+  const notStarted = date < item.habit.start_date
+  const s = notStarted ? { label: `Starts ${formatShort(item.habit.start_date)}`, tone: 'neutral' as const } : STATUS[item.status] ?? STATUS.inactive
   const schedule = item.habit.current_schedule
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-lg border border-line px-3 py-2">
@@ -113,7 +115,7 @@ function HabitRow({ item, date, future, onEdit, onChanged }: {
           </div>
         )}
       </div>
-      <CheckinControl item={item} date={date} disabled={future} onChanged={onChanged} />
+      <CheckinControl item={item} date={date} disabled={future || notStarted} onChanged={onChanged} />
       <Button size="sm" variant="ghost" onClick={() => onEdit(item.habit)} aria-label={`Edit ${item.habit.name}`}>Edit</Button>
     </li>
   )

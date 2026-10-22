@@ -41,7 +41,8 @@ export function NewHabitDialog({ onClose }: { onClose: () => void }) {
           <Field label="Unit (optional)" htmlFor="nh-unit"><input id="nh-unit" className={inputClass} value={unit} maxLength={30} placeholder="e.g. glasses" onChange={(e) => setUnit(e.target.value)} /></Field>
         )}
         <ScheduleEditor value={schedule} onChange={setSchedule} kind={kind} unit={unit} idPrefix="nh" />
-        <Field label="Starts on" htmlFor="nh-start" hint="Days before this are never counted.">
+        <Field label="Starts on" htmlFor="nh-start"
+          hint={start > today ? `Starts on a future day: you can mark it done from ${formatShort(start)}.` : 'Days before this are never counted.'}>
           <input id="nh-start" type="date" className={inputClass} value={start} onChange={(e) => setStart(e.target.value)} />
         </Field>
         {error && <ErrorNote message={error} />}

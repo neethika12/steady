@@ -603,6 +603,21 @@ test('local AI: daily plan is a proposal until accepted', async ({ page }) => {
 })
 
 
+test('habits: a habit starting today can be marked done; one starting tomorrow says when it starts', async ({ page }) => {
+  const settings = await api(page, 'GET', '/settings')
+  const t = new Date(`${settings.today}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + 1)
+  const tomorrow = t.toISOString().slice(0, 10)
+  await api(page, 'POST', '/habits', { name: `Stretch now ${run}`, start_date: settings.today, schedule: { schedule_type: 'daily' } })
+  await api(page, 'POST', '/habits', { name: `Stretch later ${run}`, start_date: tomorrow, schedule: { schedule_type: 'daily' } })
+  await page.goto('/#habits')
+  await page.getByRole('button', { name: 'Today', exact: true }).click()
+  await page.getByRole('button', { name: `Stretch now ${run}: mark done` }).click()
+  await expect(page.getByRole('button', { name: `Stretch now ${run}: done, press to undo` })).toHaveAttribute('aria-pressed', 'true')
+  const later = page.getByRole('listitem').filter({ hasText: `Stretch later ${run}` })
+  await expect(later).toContainText('Starts ')
+  await expect(later.getByRole('button', { name: `Stretch later ${run}: mark done` })).toBeDisabled()
+})
+
 test.describe('accounts', () => {
   test.use({ storageState: { cookies: [], origins: [] } }) // start signed out
   const pw = 'a long test password'
