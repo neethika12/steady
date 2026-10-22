@@ -13,15 +13,30 @@ export const useAccount = () => useContext(AccountContext)!
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [waking, setWaking] = useState(false)
 
+  // Free hosting plans put the server to sleep when nobody has used it for a while; the first
+  // request then fails or takes up to about a minute. Keep retrying quietly for up to 2 minutes.
   const load = useCallback(async () => {
-    try {
-      setError(null)
-      const s = await get<SessionInfo>('/auth/session')
-      if (s.user) setDraftOwner(s.user.id)
-      setSession(s)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t reach the server.')
+    setError(null)
+    const started = Date.now()
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const s = await get<SessionInfo>('/auth/session')
+        if (s.user) setDraftOwner(s.user.id)
+        setWaking(false)
+        setSession(s)
+        return
+      } catch (err) {
+        const retryable = err instanceof ApiError && (err.status === 0 || err.status >= 500)
+        if (!retryable || Date.now() - started > 120_000) {
+          setWaking(false)
+          setError(err instanceof Error ? err.message : 'Couldn’t reach the server.')
+          return
+        }
+        setWaking(true)
+        await new Promise((r) => setTimeout(r, Math.min(2000 + attempt * 1000, 6000)))
+      }
     }
   }, [])
 
@@ -41,7 +56,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [session, load])
 
   if (error) return <main className="mx-auto max-w-xl p-6"><ErrorNote message={error} onRetry={load} /></main>
-  if (!session) return <main className="mx-auto max-w-xl p-6"><Loading label="Starting Steady…" /></main>
+  if (!session) return (
+    <main className="mx-auto max-w-xl p-6">
+      <Loading label={waking ? 'Waking up the server… this can take up to a minute after a quiet spell.' : 'Starting Steady…'} />
+    </main>
+  )
   if (!session.user) return <AuthScreen info={session} onDone={load} />
   return (
     // key: a different account always starts from a fresh app (no data left over in memory)

@@ -1,0 +1,21 @@
+# Render Blueprint: the backend on Render's free plan (Render → New → Blueprint → pick this repo).
+# The database is separate (for example Neon's free PostgreSQL); paste its connection string as
+# DATABASE_URL when Render asks. The website itself is deployed on Vercel (frontend/vercel.json).
+services:
+  - type: web
+    name: steady-backend
+    runtime: docker
+    plan: free
+    region: virginia
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false   # asked for when you create the Blueprint; never stored in this repo
+      - key: AI_ENABLED
+        value: "false"   # no local model on a hosted server; AI buttons are hidden
+      - key: SIGNUP_ENABLED
+        value: "true"

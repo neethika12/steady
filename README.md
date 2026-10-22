@@ -107,6 +107,13 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Hosting (Railway + Vercel)
 
+> **Free alternative: Render + Neon + Vercel ($0/month).** Database: create a free project on
+> [Neon](https://neon.com) and copy its connection string. Backend: on [Render](https://render.com),
+> *New → Blueprint*, pick this repo (it reads `render.yaml`), paste the Neon string as `DATABASE_URL`, apply.
+> Then point `frontend/vercel.json` at the Render address (`https://<name>.onrender.com`) and deploy the
+> frontend on Vercel as in step 2 below. Render's free plan sleeps after 15 idle minutes; the first visit then
+> takes up to about a minute (the app shows "Waking up the server…" and retries by itself).
+
 ```
 Browser ──HTTPS──▶ Vercel (React build) ──/api/* rewrite──▶ Railway: FastAPI ──private network──▶ Railway: PostgreSQL
 ```
@@ -567,6 +574,7 @@ backend/
     ai/                 provider interface, Ollama adapter, runner (limits/retries), features
   alembic/versions/     migrations (0010: accounts and row-level security)
   railway.json          Railway build and health check
+render.yaml             Render Blueprint (free backend)
   scripts/              start.sh, wait_for_db.py, seed_demo.py, evaluate_ai.py
   tests/                pytest suite (+ fixtures/ai_fixtures.py: labelled test-only AI replies)
 frontend/
