@@ -180,3 +180,17 @@ def test_a_habit_starting_later_is_listed_but_cant_be_checked_in_yet(client):
     assert d["progress"]["scheduled"] == 0  # not counted before it starts
     r = client.put(f"/api/habits/{h['id']}/checkins/2026-03-02", json={"value": 1})
     assert r.status_code == 422 and r.json()["detail"]["code"] == "before_start"
+
+
+
+def test_how_a_habit_is_measured_can_change_until_something_is_logged(client):
+    h = ok(client.post("/api/habits", json={"name": "Water", "schedule": {"schedule_type": "daily"}}), 201)
+    assert (h["kind"], h["has_checkins"]) == ("boolean", False)
+    r = ok(client.patch(f"/api/habits/{h['id']}", json={"kind": "count", "target_value": 8, "unit": "glasses"}))
+    assert (r["kind"], r["unit"], r["current_schedule"]["target_value"]) == ("count", "glasses", 8)
+    r = ok(client.patch(f"/api/habits/{h['id']}", json={"kind": "duration", "target_value": 20}))
+    assert (r["kind"], r["unit"], r["current_schedule"]["target_value"]) == ("duration", None, 20)
+    ok(client.put(f"/api/habits/{h['id']}/checkins/2026-03-02", json={"value": 25}))
+    locked = client.patch(f"/api/habits/{h['id']}", json={"kind": "boolean"})
+    assert locked.status_code == 422 and locked.json()["detail"]["code"] == "measure_locked"
+    assert ok(client.patch(f"/api/habits/{h['id']}", json={"name": "Swim"}))["name"] == "Swim"  # other details still editable

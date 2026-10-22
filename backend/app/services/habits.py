@@ -217,6 +217,7 @@ def habit_out(habit: Habit, today: date) -> HabitOut:
         schedules=[ScheduleOut.model_validate(s) for s in habit.schedules],
         pauses=[PauseOut.model_validate(p) for p in habit.pauses],
         paused_today=is_paused(habit, today),
+        has_checkins=bool(habit.checkins),
         created_at=habit.created_at,
     )
 
@@ -261,6 +262,19 @@ def update_habit(db: Session, habit: Habit, data: HabitUpdate) -> Habit:
         habit.description = (changes["description"] or "").strip()
     if "unit" in changes:
         habit.unit = (changes["unit"] or "").strip() or None
+    kind, target = changes.get("kind"), changes.get("target_value")
+    if (kind and kind != habit.kind) or target:
+        if habit.checkins:
+            raise invalid("measure_locked", "Days are already logged for this habit, so how it's measured can't "
+                                            "change (that would change past results). Create a new habit instead.")
+        before = {"kind": habit.kind, "unit": habit.unit}
+        habit.kind = kind or habit.kind
+        for s in habit.schedules:  # nothing logged yet, so every version can simply take the new measure
+            s.target_value = 1 if habit.kind == "boolean" else (target or s.target_value)
+        if habit.kind != "count":
+            habit.unit = None
+        audit.record(db, "habit", habit.id, "measure_changed", before=before,
+                     after={"kind": habit.kind, "unit": habit.unit, "target_value": target})
     db.flush()
     return habit
 

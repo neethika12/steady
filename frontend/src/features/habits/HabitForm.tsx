@@ -82,6 +82,8 @@ export function EditHabitDialog({ habit, onClose }: { habit: Habit; onClose: () 
           }}>Save details</Button></div>
         </section>
 
+        <MeasureSection habit={habit} onSaved={() => { done('Saved'); onClose() }} />
+
         <section className="flex flex-col gap-3">
           <h3 className="font-semibold">Schedule</h3>
           <p className="text-sm text-muted">
@@ -143,5 +145,50 @@ export function EditHabitDialog({ habit, onClose }: { habit: Habit; onClose: () 
         {action.error && <ErrorNote message={action.error} />}
       </div>
     </Dialog>
+  )
+}
+
+const KIND_LABEL: Record<HabitKind, string> = { boolean: 'Yes / no', duration: 'Minutes', count: 'Count' }
+
+/** Change how a habit is measured, as long as nothing has been logged (past results never change meaning). */
+function MeasureSection({ habit, onSaved }: { habit: Habit; onSaved: () => void }) {
+  const [kind, setKind] = useState<HabitKind>(habit.kind)
+  const [target, setTarget] = useState(String(habit.current_schedule?.target_value && habit.kind !== 'boolean' ? habit.current_schedule.target_value : kind === 'duration' ? 15 : 1))
+  const [unit, setUnit] = useState(habit.unit ?? '')
+  const action = useAction()
+  if (habit.has_checkins) {
+    return (
+      <section className="flex flex-col gap-1">
+        <h3 className="font-semibold">How it’s measured</h3>
+        <p className="text-sm">{KIND_LABEL[habit.kind]}{habit.kind === 'count' && habit.unit ? ` (${habit.unit})` : ''}</p>
+        <p className="text-sm text-muted">Days are already logged, so this can’t change: past results would change meaning. To measure it differently, create a new habit.</p>
+      </section>
+    )
+  }
+  const n = Number(target)
+  const valid = kind === 'boolean' || (Number.isInteger(n) && n >= 1 && n <= 1440)
+  const changed = kind !== habit.kind || (kind !== 'boolean' && n !== habit.current_schedule?.target_value) || (kind === 'count' && unit !== (habit.unit ?? ''))
+  return (
+    <section className="flex flex-col gap-3">
+      <h3 className="font-semibold">How it’s measured</h3>
+      <p className="text-sm text-muted">You can change this until the first day is logged.</p>
+      <KindPicker kind={kind} onChange={(k) => { setKind(k); if (k === 'duration' && target === '1') setTarget('15') }} />
+      {kind !== 'boolean' && (
+        <Field label={kind === 'duration' ? 'Minutes needed to count as done' : 'Amount needed to count as done'} htmlFor="eh-target">
+          <input id="eh-target" type="number" min={1} max={1440} inputMode="numeric" className={`${fieldBase} w-28`} value={target}
+            aria-invalid={!valid} onChange={(e) => setTarget(e.target.value)} />
+        </Field>
+      )}
+      {kind === 'count' && (
+        <Field label="Unit (optional)" htmlFor="eh-measure-unit">
+          <input id="eh-measure-unit" className={inputClass} placeholder="e.g. glasses, pages" maxLength={30} value={unit} onChange={(e) => setUnit(e.target.value)} />
+        </Field>
+      )}
+      {action.error && <ErrorNote message={action.error} />}
+      <div><Button size="sm" variant="primary" pending={action.pending} disabled={!valid || !changed} onClick={async () => {
+        const body = { kind, target_value: kind === 'boolean' ? null : n, unit: kind === 'count' ? unit : null }
+        if (await action.run(() => patch(`/habits/${habit.id}`, body))) onSaved()
+      }}>Save how it’s measured</Button></div>
+    </section>
   )
 }

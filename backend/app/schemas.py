@@ -305,6 +305,9 @@ class HabitUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     unit: str | None = Field(default=None, max_length=30)
+    # How it's measured; only while nothing has been logged, so no past day changes meaning.
+    kind: HabitKind | None = None
+    target_value: int | None = Field(default=None, ge=1, le=1440)
 
 
 class ScheduleChange(BaseModel):
@@ -354,6 +357,7 @@ class HabitOut(BaseModel):
     schedules: list[ScheduleOut]
     pauses: list[PauseOut]
     paused_today: bool
+    has_checkins: bool  # once true, how it's measured can't change
     created_at: datetime
 
 

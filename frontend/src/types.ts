@@ -122,6 +122,7 @@ export interface Habit {
   schedules: Schedule[]
   pauses: { id: string; start_date: ISODate; end_date: ISODate | null }[]
   paused_today: boolean
+  has_checkins: boolean // once true, how it's measured can't change
 }
 
 export type HabitDayStatus =

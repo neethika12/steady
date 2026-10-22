@@ -618,6 +618,30 @@ test('habits: a habit starting today can be marked done; one starting tomorrow s
   await expect(later.getByRole('button', { name: `Stretch later ${run}: mark done` })).toBeDisabled()
 })
 
+test('habits: how a new habit is measured can be changed until a day is logged', async ({ page }) => {
+  const settings = await api(page, 'GET', '/settings')
+  const name = `Water ${run}`
+  await api(page, 'POST', '/habits', { name, start_date: settings.today, schedule: { schedule_type: 'daily' } })
+  await page.goto('/#habits')
+  await page.getByRole('button', { name: 'Today', exact: true }).click()
+  await page.getByRole('button', { name: `Edit ${name}` }).click()
+  const dialog = page.getByRole('dialog', { name: `Edit “${name}”` })
+  await dialog.getByRole('radio', { name: 'Count' }).click()
+  await dialog.getByLabel('Amount needed to count as done').fill('8')
+  await dialog.getByLabel('Unit (optional)').fill('glasses')
+  await dialog.getByRole('button', { name: 'Save how it’s measured' }).click()
+  await expect(dialog).toBeHidden()
+  const row = page.getByRole('listitem').filter({ hasText: name })
+  await expect(row).toContainText('8 glasses')
+  await expect(row.getByRole('spinbutton')).toBeVisible() // a count box instead of Mark done
+  await row.getByRole('button', { name: `Increase ${name}` }).click()
+  await expect.poll(async () => (await api(page, 'GET', `/habits/day?date=${settings.today}`)).scheduled
+    .find((i: { habit: { name: string } }) => i.habit.name === name)?.value).toBe(1)
+  await page.getByRole('button', { name: `Edit ${name}` }).click()
+  await expect(dialog).toContainText('Days are already logged, so this can’t change')
+  await expect(dialog.getByRole('button', { name: 'Save how it’s measured' })).toHaveCount(0)
+})
+
 test.describe('accounts', () => {
   test.use({ storageState: { cookies: [], origins: [] } }) // start signed out
   const pw = 'a long test password'
