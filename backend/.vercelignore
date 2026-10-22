@@ -8,3 +8,5 @@ requirements-dev.txt
 .pytest_cache/
 __pycache__/
 *.pyc
+.env*
+.vercel/
