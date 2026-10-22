@@ -70,6 +70,29 @@ def normalize_email(email: str) -> str:
     return e
 
 
+# ---------------------------------------------------------------- recovery codes
+
+_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I, so it's easy to copy by hand
+
+
+def new_recovery_code(user: User) -> str:
+    """Make a fresh code (about 100 bits), store only its hash, and return it to show once."""
+    raw = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(20))
+    user.recovery_code_hash = hash_password(raw)
+    return "-".join(raw[i:i + 5] for i in range(0, 20, 5))
+
+
+def normalize_code(code: str) -> str:
+    return "".join(ch for ch in code.upper() if ch.isalnum())
+
+
+def check_recovery_code(user: User | None, code: str) -> bool:
+    if user is None or not user.recovery_code_hash:
+        verify_password(normalize_code(code), _DUMMY_HASH)  # same time whether or not the account exists
+        return False
+    return verify_password(normalize_code(code), user.recovery_code_hash)
+
+
 # ---------------------------------------------------------------- rate limiting
 
 class AttemptLimiter:
@@ -104,6 +127,7 @@ class AttemptLimiter:
 
 login_limiter = AttemptLimiter("login", limit=8, window=15 * 60)
 signup_limiter = AttemptLimiter("signup", limit=10, window=60 * 60)
+reset_limiter = AttemptLimiter("reset", limit=5, window=15 * 60)
 
 
 # ---------------------------------------------------------------- sessions

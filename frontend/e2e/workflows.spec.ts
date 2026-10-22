@@ -605,52 +605,100 @@ test('local AI: daily plan is a proposal until accepted', async ({ page }) => {
 
 test.describe('accounts', () => {
   test.use({ storageState: { cookies: [], origins: [] } }) // start signed out
+  const pw = 'a long test password'
+  const password = (page: Page) => page.getByLabel('Password', { exact: true })
+
+  /** Create an account; returns the recovery code it shows. Then log in. */
+  async function signUp(page: Page, name: string, email: string): Promise<string> {
+    await page.goto('/')
+    await page.getByRole('radio', { name: 'Create account' }).click()
+    await page.getByLabel('Name').fill(name)
+    await page.getByLabel('Email').fill(email)
+    await password(page).fill(pw)
+    await page.getByLabel('Confirm password', { exact: true }).fill(pw)
+    await page.getByRole('button', { name: 'Create account' }).click()
+    // Creating an account doesn't sign in: first the recovery code, then Log in with the email filled in.
+    const panel = page.getByRole('group', { name: 'Recovery code' })
+    await expect(panel).toContainText(`Your account is ready, ${name.split(' ')[0]}`)
+    const code = (await page.getByTestId('recovery-code').textContent())!.trim()
+    expect(code).toMatch(/^[A-Z2-9]{5}(-[A-Z2-9]{5}){3}$/)
+    await expect(panel.getByRole('button', { name: 'Continue to log in' })).toBeDisabled() // until it's saved
+    await panel.getByLabel('I’ve saved my recovery code').check()
+    await panel.getByRole('button', { name: 'Continue to log in' }).click()
+    await expect(page.getByRole('radio', { name: 'Log in' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByLabel('Email')).toHaveValue(email)
+    await expect(password(page)).toHaveValue('')
+    await expect(page.getByRole('tab', { name: /To-Do/ })).toHaveCount(0)
+    await password(page).fill(pw)
+    await page.getByRole('button', { name: 'Log in', exact: true }).click()
+    await expect(page.getByRole('tab', { name: /To-Do/ })).toBeVisible()
+    return code
+  }
+  async function logOut(page: Page) {
+    await page.getByRole('button', { name: 'Account' }).click()
+    await page.getByRole('menuitem', { name: 'Log out' }).click()
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible()
+  }
 
   test('each person sees only their own tasks; log out and back in', async ({ page }) => {
-    const a = `a-${run}@example.com`, b = `b-${run}@example.com`, pw = 'a long test password'
+    const a = `a-${run}@example.com`, b = `b-${run}@example.com`
     const secret = `Secret plan ${run}`
-    const signUp = async (name: string, email: string) => {
-      await page.goto('/')
-      await page.getByRole('radio', { name: 'Create account' }).click()
-      await page.getByLabel('Name').fill(name)
-      await page.getByLabel('Email').fill(email)
-      await page.getByLabel('Password').fill(pw)
-      await page.getByRole('button', { name: 'Create account' }).click()
-      // Creating an account doesn't sign in: it goes to Log in with the email already filled in.
-      await expect(page.getByRole('status')).toContainText(`Your account is ready, ${name.split(' ')[0]}`)
-      await expect(page.getByRole('radio', { name: 'Log in' })).toHaveAttribute('aria-checked', 'true')
-      await expect(page.getByLabel('Email')).toHaveValue(email)
-      await expect(page.getByLabel('Password')).toHaveValue('')
-      await expect(page.getByRole('tab', { name: /To-Do/ })).toHaveCount(0)
-      await page.getByLabel('Password').fill(pw)
-      await page.getByRole('button', { name: 'Log in' }).click()
-      await expect(page.getByRole('tab', { name: /To-Do/ })).toBeVisible()
-    }
-    const logOut = async () => {
-      await page.getByRole('button', { name: 'Account' }).click()
-      await page.getByRole('menuitem', { name: 'Log out' }).click()
-      await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible()
-    }
-    await signUp('Asha Rao', a)
+    await signUp(page, 'Asha Rao', a)
     await page.getByRole('button', { name: 'Account' }).click()
     await expect(page.getByRole('menu')).toContainText('Asha Rao') // the account menu shows the name
     await page.getByRole('button', { name: 'Account' }).click() // close it
     await page.getByLabel('Capture a task').fill(secret)
     await page.getByLabel('Capture a task').press('Enter')
     await expect(page.getByText(secret)).toBeVisible()
-    await logOut()
+    await logOut(page)
 
-    await signUp('Ben Cole', b)
+    await signUp(page, 'Ben Cole', b)
     await expect(page.getByText(secret)).toHaveCount(0) // someone else's task is invisible
     expect(JSON.stringify(await (await page.request.get('/api/tasks?status=all')).json())).not.toContain(secret)
-    await logOut()
+    await logOut(page)
 
     await page.getByLabel('Email').fill(a)
-    await page.getByLabel('Password').fill('wrong password here')
-    await page.getByRole('button', { name: 'Log in' }).click()
+    await password(page).fill('wrong password here')
+    await page.getByRole('button', { name: 'Log in', exact: true }).click()
     await expect(page.getByRole('alert')).toContainText("don't match")
-    await page.getByLabel('Password').fill(pw)
-    await page.getByRole('button', { name: 'Log in' }).click()
+    await password(page).fill(pw)
+    await page.getByRole('button', { name: 'Log in', exact: true }).click()
     await expect(page.getByText(secret)).toBeVisible()
+  })
+
+  test('show password, confirm password, and forgot password with the recovery code', async ({ page }) => {
+    const email = `c-${run}@example.com`
+    await page.goto('/')
+    await page.getByRole('radio', { name: 'Create account' }).click()
+    await password(page).fill('typed secret words')
+    await expect(password(page)).toHaveAttribute('type', 'password')
+    await page.getByRole('button', { name: 'Show password', exact: true }).click() // the eye button
+    await expect(password(page)).toHaveAttribute('type', 'text')
+    await page.getByRole('button', { name: 'Hide password', exact: true }).click()
+    await expect(password(page)).toHaveAttribute('type', 'password')
+    await page.getByLabel('Confirm password', { exact: true }).fill('something different')
+    await expect(page.getByText('The two passwords don’t match.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled()
+
+    const code = await signUp(page, 'Cleo Park', email)
+    await logOut(page)
+
+    // Forgot password: email + recovery code + new password (twice).
+    await page.getByRole('button', { name: 'Forgot password?' }).click()
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Recovery code').fill(code.toLowerCase())
+    await page.getByLabel('New password', { exact: true }).fill('my brand new password')
+    await page.getByLabel('Confirm new password', { exact: true }).fill('my brand new password')
+    await page.getByRole('button', { name: 'Reset password' }).click()
+    const panel = page.getByRole('group', { name: 'Recovery code' })
+    await expect(panel).toContainText('Your password was changed')
+    const second = (await page.getByTestId('recovery-code').textContent())!.trim()
+    expect(second).not.toBe(code) // the old code is used up
+    await panel.getByLabel('I’ve saved my recovery code').check()
+    await panel.getByRole('button', { name: 'Continue to log in' }).click()
+    await expect(page.getByRole('status')).toContainText('Log in with your new password')
+    await password(page).fill('my brand new password')
+    await page.getByRole('button', { name: 'Log in', exact: true }).click()
+    await expect(page.getByRole('tab', { name: /To-Do/ })).toBeVisible()
   })
 })

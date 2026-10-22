@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_config
@@ -28,6 +29,12 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=1, max_length=200)
 
 
+class PasswordReset(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    recovery_code: str = Field(min_length=10, max_length=60)
+    new_password: str = Field(min_length=1, max_length=200)
+
+
 class PasswordConfirm(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
@@ -39,7 +46,7 @@ def _client(request: Request) -> str:
 
 
 def _user_out(u: User) -> dict:
-    return {"id": u.id, "name": u.name, "email": u.email}
+    return {"id": u.id, "name": u.name, "email": u.email, "has_recovery_code": bool(u.recovery_code_hash)}
 
 
 def _set_cookie(response: Response, token: str) -> None:
@@ -78,8 +85,10 @@ def sign_up(data: SignUp, request: Request, db: Session = Depends(get_db)) -> di
     auth.signup_limiter.check(db, ip)
     auth.signup_limiter.fail(db, ip)  # counts every attempt: limits mass account creation
     user = auth.sign_up(db, data.name, data.email, data.password, cfg.claim_existing_data)
+    code = auth.new_recovery_code(user)
     db.commit()
-    return {"user": _user_out(user)}
+    # Shown once, so the person can reset their password later without email.
+    return {"user": _user_out(user), "recovery_code": code}
 
 
 @router.post("/login")
@@ -137,3 +146,36 @@ def delete_account(data: PasswordConfirm, request: Request, db: Session = Depend
     response = Response(status_code=204)
     _clear_cookie(response)
     return response
+
+
+@router.post("/reset-password")
+def reset_password(data: PasswordReset, request: Request, db: Session = Depends(get_db)) -> dict:
+    """Forgot password: email + recovery code + new password. Each code works once, so a new one
+    is returned (shown once). Every signed-in browser of the account is signed out."""
+    email = data.email.strip().lower()
+    keys = ("email:" + email, _client(request))
+    auth.reset_limiter.check(db, *keys)
+    user = db.scalars(select(User).where(User.email == email)).first()
+    if not auth.check_recovery_code(user, data.recovery_code):
+        auth.reset_limiter.fail(db, *keys)
+        raise AppError(401, "invalid_recovery", "That email and recovery code don't match.")
+    auth.check_new_password(data.new_password)
+    user.password_hash = auth.hash_password(data.new_password)
+    code = auth.new_recovery_code(user)
+    auth.end_other_sessions(db, user.id, None)
+    db.commit()
+    return {"recovery_code": code}
+
+
+@router.post("/recovery-code")
+def regenerate_recovery_code(data: PasswordConfirm, request: Request, db: Session = Depends(get_db)) -> dict:
+    """Make a new recovery code (the old one stops working). Needs the current password."""
+    user = _require_user(request, db)
+    keys = (f"user:{user.id}",)
+    auth.login_limiter.check(db, *keys)
+    if not auth.verify_password(data.password, user.password_hash):
+        auth.login_limiter.fail(db, *keys)
+        raise AppError(403, "wrong_password", "That password isn't right.")
+    code = auth.new_recovery_code(user)
+    db.commit()
+    return {"recovery_code": code}

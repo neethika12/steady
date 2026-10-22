@@ -11,7 +11,7 @@ import { TaskInbox } from './features/todo/TaskInbox'
 import { TodoTab } from './features/todo/TodoTab'
 import { CalendarTab } from './features/calendar/CalendarTab'
 import { MoneyTab } from './features/money/MoneyTab'
-import { AccountMenu, AuthGate } from './features/account/Auth'
+import { AccountMenu, AuthGate, RecoveryReminder } from './features/account/Auth'
 import { useLoad } from './hooks'
 import type { Settings } from './types'
 
@@ -118,6 +118,7 @@ function Shell() {
           <AccountMenu />
         </header>
 
+        <RecoveryReminder />
         <HeroBanner />
 
         {!value.settings.timezone_confirmed && <TimezoneBanner settings={value.settings} onDone={settings.reload} />}

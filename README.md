@@ -101,6 +101,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 - **Journal drafts** are kept in the browser per account and removed when you log out.
 - **On your own computer**, the *first* account you create takes over any data from before accounts existed
   (`CLAIM_EXISTING_DATA=true` in `compose.yaml`). Later accounts start empty.
+- **Forgot password** works without email: creating an account shows a one-time **recovery code** (Copy /
+  Download; you confirm you saved it). *Forgot password?* on the log-in screen takes the email, the code and a new
+  password (typed twice), signs out other devices and gives a fresh code (each code works once). Only a scrypt hash
+  of the code is stored; wrong codes and unknown emails get the same answer, and guesses are rate-limited.
+  Accounts made before codes existed see a reminder to set one up (also in the account menu). Password boxes
+  have a show/hide (eye) button, and new passwords are typed twice.
 - Not built yet: password reset by email, email verification, two-factor login.
 
 ---
@@ -502,7 +508,7 @@ uses calendar dates, so 23- and 25-hour daylight-saving days are handled correct
 ## Development and tests
 
 ```bash
-# Backend tests (114): run inside Docker against a separate "<db>_test" database
+# Backend tests (123): run inside Docker against a separate "<db>_test" database
 docker compose --profile test run --rm backend-test
 
 # Frontend type check and production build

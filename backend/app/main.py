@@ -28,7 +28,8 @@ app.add_middleware(
 
 
 # Everything under /api needs a signed-in user, except these.
-PUBLIC_PATHS = {"/api/health", "/api/auth/session", "/api/auth/signup", "/api/auth/login", "/api/auth/logout"}
+PUBLIC_PATHS = {"/api/health", "/api/auth/session", "/api/auth/signup", "/api/auth/login", "/api/auth/logout",
+                "/api/auth/reset-password"}
 
 
 @app.middleware("http")

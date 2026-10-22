@@ -185,3 +185,49 @@ def test_first_account_on_a_local_server_claims_data_from_before_accounts(Sessio
     finally:
         app.dependency_overrides.clear()
         del app.state.session_factory
+
+
+# ---- forgot password (recovery code) ----
+
+def test_recovery_code_resets_the_password_once(client):
+    anon = TestClient(app, base_url="https://testserver")
+    r = ok(anon.post("/api/auth/signup", json={"name": "Rae", "email": "rae@example.com", "password": "first password 1"}), 201)
+    code = r["recovery_code"]
+    assert len(code) == 23 and code.count("-") == 3 and r["user"]["has_recovery_code"] is True
+    with TestClient(app, base_url="https://testserver") as phone:  # signed in elsewhere
+        ok(phone.post("/api/auth/login", json={"email": "rae@example.com", "password": "first password 1"}))
+        # Wrong code and unknown email look the same.
+        bad = anon.post("/api/auth/reset-password", json={"email": "rae@example.com", "recovery_code": "AAAAA-AAAAA-AAAAA-AAAAA", "new_password": "second password 2"})
+        nobody = anon.post("/api/auth/reset-password", json={"email": "nobody@example.com", "recovery_code": code, "new_password": "second password 2"})
+        assert bad.status_code == nobody.status_code == 401 and bad.json() == nobody.json()
+        # The code works typed loosely (lower case, spaces instead of dashes).
+        loose = code.lower().replace("-", " ")
+        new = ok(anon.post("/api/auth/reset-password", json={"email": " RAE@example.com", "recovery_code": loose, "new_password": "second password 2"}))
+        assert new["recovery_code"] != code
+        assert phone.get("/api/tasks").status_code == 401  # other browsers are signed out
+    assert anon.post("/api/auth/login", json={"email": "rae@example.com", "password": "first password 1"}).status_code == 401
+    ok(anon.post("/api/auth/login", json={"email": "rae@example.com", "password": "second password 2"}))
+    # The old code was used up; the new one works.
+    again = {"email": "rae@example.com", "recovery_code": code, "new_password": "third password 3"}
+    assert anon.post("/api/auth/reset-password", json=again).status_code == 401
+    ok(anon.post("/api/auth/reset-password", json={**again, "recovery_code": new["recovery_code"]}))
+
+
+def test_reset_rules(client):
+    anon = TestClient(app, base_url="https://testserver")
+    code = ok(anon.post("/api/auth/signup", json={"name": "Sam", "email": "sam@example.com", "password": "first password 1"}), 201)["recovery_code"]
+    weak = anon.post("/api/auth/reset-password", json={"email": "sam@example.com", "recovery_code": code, "new_password": "short"})
+    assert weak.status_code == 422  # and the code isn't used up by a refused attempt
+    ok(anon.post("/api/auth/reset-password", json={"email": "sam@example.com", "recovery_code": code, "new_password": "long enough now"}))
+    codes = [anon.post("/api/auth/reset-password", json={"email": "sam@example.com", "recovery_code": "BBBBB-BBBBB-BBBBB-BBBBB",
+                                                         "new_password": "whatever password"}).status_code for _ in range(6)]
+    assert codes[:5] == [401] * 5 and codes[5] == 429  # guessing is slowed down
+
+
+def test_a_new_recovery_code_needs_the_password(client):
+    me = ok(client.get("/api/auth/session"))["user"]
+    assert me["has_recovery_code"] is True  # the test account got one at sign-up
+    assert client.post("/api/auth/recovery-code", json={"password": "wrong password!"}).status_code == 403
+    code = ok(client.post("/api/auth/recovery-code", json={"password": TEST_PASSWORD}))["recovery_code"]
+    anon = TestClient(app, base_url="https://testserver")
+    ok(anon.post("/api/auth/reset-password", json={"email": TEST_EMAIL, "recovery_code": code, "new_password": "brand new password"}))

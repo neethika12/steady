@@ -92,6 +92,8 @@ class User(Timestamps, Base):
     email: Mapped[str | None] = mapped_column(String(254))  # stored lower-case; empty only for the placeholder owner
     name: Mapped[str | None] = mapped_column(String(80))  # empty for accounts made before names were asked
     password_hash: Mapped[str | None] = mapped_column(String(255))
+    # "Forgot password" without email: a one-time code shown to the person; only its hash is kept.
+    recovery_code_hash: Mapped[str | None] = mapped_column(String(255))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
