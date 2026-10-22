@@ -9,17 +9,14 @@ import hashlib
 import hmac
 import re
 import secrets
-import threading
-import time
 import uuid
-from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
 from app.errors import AppError, conflict, invalid
-from app.models import AuthSession, FinanceCategory, User
+from app.models import AuthAttempt, AuthSession, FinanceCategory, User
 
 SESSION_COOKIE = "steady_session"
 OWNER_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")  # placeholder owner from migration 0010
@@ -76,40 +73,37 @@ def normalize_email(email: str) -> str:
 # ---------------------------------------------------------------- rate limiting
 
 class AttemptLimiter:
-    """At most ``limit`` failures per key in ``window`` seconds (kept in memory)."""
+    """At most ``limit`` attempts per key in ``window`` seconds.
 
-    def __init__(self, limit: int, window: int) -> None:
-        self.limit, self.window = limit, window
-        self.fails: dict[str, deque[float]] = defaultdict(deque)
-        self.lock = threading.Lock()
+    Stored in the database (not memory) so the limit holds when several server instances run,
+    as on serverless hosts. Each recorded attempt is committed at once, so it counts even when
+    the request then fails.
+    """
 
-    def _trim(self, q: deque[float], now: float) -> None:
-        while q and now - q[0] > self.window:
-            q.popleft()
+    def __init__(self, scope: str, limit: int, window: int) -> None:
+        self.scope, self.limit, self.window = scope, limit, window
 
-    def check(self, *keys: str) -> None:
-        now = time.monotonic()
-        with self.lock:
-            for k in keys:
-                q = self.fails[k]
-                self._trim(q, now)
-                if len(q) >= self.limit:
-                    wait = int(self.window - (now - q[0])) // 60 + 1
-                    raise AppError(429, "too_many_attempts", f"Too many attempts. Try again in about {wait} minutes.")
+    def check(self, db: Session, *keys: str) -> None:
+        since = func.now() - timedelta(seconds=self.window)
+        for k in keys:
+            oldest, count = db.execute(
+                select(func.min(AuthAttempt.created_at), func.count())
+                .where(AuthAttempt.key == f"{self.scope}:{k}", AuthAttempt.created_at > since)).one()
+            if count >= self.limit:
+                age = db.scalar(select(func.extract("epoch", func.now() - oldest)))
+                wait = int((self.window - float(age)) // 60) + 1
+                raise AppError(429, "too_many_attempts", f"Too many attempts. Try again in about {wait} minutes.")
 
-    def fail(self, *keys: str) -> None:
-        now = time.monotonic()
-        with self.lock:
-            for k in keys:
-                self.fails[k].append(now)
-
-    def clear(self) -> None:
-        with self.lock:
-            self.fails.clear()
+    def fail(self, db: Session, *keys: str) -> None:
+        for k in keys:
+            db.add(AuthAttempt(key=f"{self.scope}:{k}"))
+        # Old attempts are no longer needed: keep the table small.
+        db.execute(delete(AuthAttempt).where(AuthAttempt.created_at < func.now() - timedelta(days=1)))
+        db.commit()
 
 
-login_limiter = AttemptLimiter(limit=8, window=15 * 60)
-signup_limiter = AttemptLimiter(limit=10, window=60 * 60)
+login_limiter = AttemptLimiter("login", limit=8, window=15 * 60)
+signup_limiter = AttemptLimiter("signup", limit=10, window=60 * 60)
 
 
 # ---------------------------------------------------------------- sessions

@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_config
 from app.db import open_session, session_factory
+from app.migrate import ensure_schema
 from app.routers import ai, auth, data, finance, habits, journal, settings, tasks
 from app.services import auth as auth_service
 from app.timeutil import utc_now
@@ -33,6 +34,7 @@ PUBLIC_PATHS = {"/api/health", "/api/auth/session", "/api/auth/signup", "/api/au
 @app.middleware("http")
 async def authenticate(request: Request, call_next):
     """Resolve the session cookie to a user; refuse /api requests without one."""
+    await run_in_threadpool(ensure_schema)  # no-op unless MIGRATE_ON_START (serverless)
     token = request.cookies.get(auth_service.SESSION_COOKIE)
     user_id = None
     if token:

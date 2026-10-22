@@ -108,6 +108,17 @@ class AuthSession(Timestamps, Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class AuthAttempt(Base):
+    """One failed log-in (or any sign-up) attempt, for rate limiting. No passwords are stored."""
+
+    __tablename__ = "auth_attempts"
+    __table_args__ = (Index("ix_auth_attempts_key_created", "key", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    key: Mapped[str] = mapped_column(String(320))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=text("now()"))
+
+
 class Owned:
     """Every data row belongs to one user. Filled in by the database; never set by app code."""
 

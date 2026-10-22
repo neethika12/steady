@@ -80,3 +80,36 @@ def test_task_origin_backfill():
         with admin.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{MIG_DB}" WITH (FORCE)'))
         admin.dispose()
+
+
+def test_serverless_instances_migrate_once_on_first_request(monkeypatch):
+    """MIGRATE_ON_START: an empty database is brought up to date by the first request; repeats do nothing."""
+    import dataclasses
+
+    from alembic.script import ScriptDirectory
+
+    from app import migrate
+    from app.config import get_config
+
+    admin = create_engine(base_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{MIG_DB}"'))
+        conn.execute(text(f'CREATE DATABASE "{MIG_DB}"'))
+    url = TEST_URL.set(database=MIG_DB).render_as_string(hide_password=False)
+    try:
+        cfg = dataclasses.replace(get_config(), database_url=url, migrate_on_start=True)
+        monkeypatch.setattr(migrate, "get_config", lambda: cfg)
+        monkeypatch.setattr(migrate, "_done", False)
+        migrate.ensure_schema()
+        head = ScriptDirectory.from_config(migrate._alembic_config()).get_current_head()
+        eng = create_engine(url)
+        with eng.connect() as conn:
+            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == head
+            assert conn.execute(text("SELECT count(*) FROM users")).scalar() == 0
+        monkeypatch.setattr(migrate, "_done", False)
+        migrate.ensure_schema()  # a second instance finds nothing to do
+        eng.dispose()
+    finally:
+        with admin.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{MIG_DB}" WITH (FORCE)'))
+        admin.dispose()

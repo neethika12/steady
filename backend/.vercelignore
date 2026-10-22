@@ -1,0 +1,10 @@
+# Only the app, its migrations and dependency lists are deployed to Vercel.
+tests/
+scripts/
+Dockerfile
+.dockerignore
+railway.json
+requirements-dev.txt
+.pytest_cache/
+__pycache__/
+*.pyc

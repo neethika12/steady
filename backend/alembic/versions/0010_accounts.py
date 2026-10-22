@@ -63,6 +63,13 @@ def upgrade() -> None:
     op.create_index("ix_auth_sessions_user_id", "auth_sessions", ["user_id"])
 
     conn = op.get_bind()
+    # A brand-new database holds only the starter money categories from migration 0007. Those are
+    # configuration, not anyone's data (every new account gets its own copy at sign-up), so they're
+    # removed rather than given to a placeholder owner. Categories someone added (sort_order 1000)
+    # or any other record count as existing data.
+    others = [t for t in TABLES + PER_USER_ROW if t != "finance_categories"]
+    if not any(conn.execute(sa.text(f"SELECT EXISTS (SELECT 1 FROM {t})")).scalar() for t in others):
+        conn.execute(sa.text("DELETE FROM finance_categories WHERE sort_order < 1000"))
     has_data = any(conn.execute(sa.text(f"SELECT EXISTS (SELECT 1 FROM {t})")).scalar() for t in TABLES + PER_USER_ROW)
     if has_data:
         conn.execute(sa.text("INSERT INTO users (id, email, password_hash, created_at, updated_at) "

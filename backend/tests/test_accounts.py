@@ -175,7 +175,6 @@ def test_first_account_on_a_local_server_claims_data_from_before_accounts(Sessio
                           "now(), now())"), {"o": str(auth.OWNER_ID)})
     app.state.session_factory = Session
     app.dependency_overrides[get_now] = lambda: clock.now
-    auth.signup_limiter.clear()
     try:
         cfg = dataclasses.replace(auth_router.get_config(), claim_existing_data=True)
         monkeypatch.setattr(auth_router, "get_config", lambda: cfg)

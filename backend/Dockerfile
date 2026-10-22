@@ -6,6 +6,7 @@ RUN pip install -r requirements.txt
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
+COPY main.py .
 COPY scripts ./scripts
 RUN useradd --create-home appuser && chown -R appuser /app
 USER appuser

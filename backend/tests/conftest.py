@@ -17,7 +17,6 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app.config import get_config
-from app.db import use_app_role
 from app.deps import get_now
 from app.main import app
 from app.models import Base
@@ -61,8 +60,9 @@ def admin_engine():
 
 @pytest.fixture(scope="session")
 def engine(admin_engine):
-    """What the app uses: the restricted role, so row-level security applies in tests too."""
-    eng = use_app_role(create_engine(TEST_URL))
+    """What the app uses. Every Session transaction switches to the restricted role, so row-level
+    security applies in tests too."""
+    eng = create_engine(TEST_URL)
     yield eng
     eng.dispose()
 
@@ -115,11 +115,8 @@ def new_client(email: str = TEST_EMAIL, password: str = TEST_PASSWORD) -> TestCl
 
 @pytest.fixture
 def client(Session, clock):
-    from app.services import auth
     app.state.session_factory = Session
     app.dependency_overrides[get_now] = lambda: clock.now
-    auth.login_limiter.clear()
-    auth.signup_limiter.clear()
     with new_client() as c:
         yield c
     app.dependency_overrides.clear()

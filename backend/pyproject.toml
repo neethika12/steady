@@ -2,8 +2,19 @@
 name = "steady-backend"
 version = "0.1.0"
 description = "Steady: personal productivity API (FastAPI + PostgreSQL)"
-requires-python = ">=3.12"
-# Pinned dependency versions live in requirements.txt / requirements-dev.txt.
+requires-python = ">=3.12,<3.13"
+# Same pins as requirements.txt (Docker installs that; serverless hosts may read this).
+# tests/test_packaging.py checks the two lists match.
+dependencies = [
+    "fastapi==0.143.0",
+    "uvicorn[standard]==0.54.0",
+    "SQLAlchemy==2.1.4",
+    "alembic==1.20.0",
+    "psycopg[binary]==3.3.6",
+    "pydantic==2.14.1",
+    "httpx==0.28.1",
+    "tzdata==2026.5",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

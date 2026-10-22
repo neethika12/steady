@@ -21,6 +21,7 @@ class Config:
     claim_existing_data: bool
     session_days: int
     ai_enabled: bool
+    migrate_on_start: bool
 
 
 def _flag(value: str | None, default: bool) -> bool:
@@ -63,4 +64,6 @@ def get_config() -> Config:
         session_days=int(env.get("SESSION_DAYS", "30")),
         # Hosted servers usually can't run a local model; AI_ENABLED=false hides the AI features.
         ai_enabled=_flag(env.get("AI_ENABLED"), True),
+        # Serverless hosts have no start script: apply pending migrations on the first request.
+        migrate_on_start=_flag(env.get("MIGRATE_ON_START"), False),
     )

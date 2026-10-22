@@ -75,8 +75,8 @@ def sign_up(data: SignUp, request: Request, db: Session = Depends(get_db)) -> di
     if not cfg.signup_enabled:
         raise AppError(403, "signup_closed", "New sign-ups are turned off on this server.")
     ip = _client(request)
-    auth.signup_limiter.check(ip)
-    auth.signup_limiter.fail(ip)  # counts every attempt: limits mass account creation
+    auth.signup_limiter.check(db, ip)
+    auth.signup_limiter.fail(db, ip)  # counts every attempt: limits mass account creation
     user = auth.sign_up(db, data.name, data.email, data.password, cfg.claim_existing_data)
     db.commit()
     return {"user": _user_out(user)}
@@ -85,10 +85,10 @@ def sign_up(data: SignUp, request: Request, db: Session = Depends(get_db)) -> di
 @router.post("/login")
 def log_in(data: Credentials, request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
     keys = ("email:" + data.email.strip().lower(), _client(request))
-    auth.login_limiter.check(*keys)
+    auth.login_limiter.check(db, *keys)
     user = auth.log_in(db, data.email, data.password)
     if user is None:
-        auth.login_limiter.fail(*keys)
+        auth.login_limiter.fail(db, *keys)
         raise AppError(401, "invalid_login", "That email and password don't match an account.")
     token = auth.create_session(db, user, utc_now(), get_config().session_days)  # real time, never a test clock
     db.commit()
@@ -112,9 +112,9 @@ def change_password(data: PasswordChange, request: Request, db: Session = Depend
     """Also signs out every other browser."""
     user = _require_user(request, db)
     keys = (f"user:{user.id}",)
-    auth.login_limiter.check(*keys)
+    auth.login_limiter.check(db, *keys)
     if not auth.verify_password(data.current_password, user.password_hash):
-        auth.login_limiter.fail(*keys)
+        auth.login_limiter.fail(db, *keys)
         raise AppError(403, "wrong_password", "Your current password isn't right.")
     auth.check_new_password(data.new_password)
     user.password_hash = auth.hash_password(data.new_password)
@@ -128,9 +128,9 @@ def delete_account(data: PasswordConfirm, request: Request, db: Session = Depend
     """Permanently deletes the account and every record in it."""
     user = _require_user(request, db)
     keys = (f"user:{user.id}",)
-    auth.login_limiter.check(*keys)
+    auth.login_limiter.check(db, *keys)
     if not auth.verify_password(data.password, user.password_hash):
-        auth.login_limiter.fail(*keys)
+        auth.login_limiter.fail(db, *keys)
         raise AppError(403, "wrong_password", "That password isn't right, so nothing was deleted.")
     db.delete(user)  # the database removes everything that belongs to it (ON DELETE CASCADE)
     db.commit()
