@@ -107,6 +107,13 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 ## Hosting (Railway + Vercel)
 
+> **Live now: Vercel + Neon + Groq, all on free plans.** Website: https://steady-gray-eight.vercel.app.
+> Backend: the `backend` folder as a second Vercel project (`backend/main.py`, `backend/vercel.json`), with
+> `DATABASE_URL` (Neon, direct connection, not pooled), `MIGRATE_ON_START=true`, `AI_ENABLED=true`,
+> `AI_PROVIDER=groq`, `GROQ_API_KEY` (from console.groq.com), `AI_DAILY_LIMIT_PER_USER=20`,
+> `AI_TIMEOUT_SECONDS=45`, `AI_REQUESTS_PER_MINUTE=20`. Every push to `main` redeploys both projects.
+> Hosted AI goes to Groq, which doesn't keep or train on API data; every AI button says so.
+
 > **Free alternative: Render + Neon + Vercel ($0/month).** Database: create a free project on
 > [Neon](https://neon.com) and copy its connection string. Backend: on [Render](https://render.com),
 > *New → Blueprint*, pick this repo (it reads `render.yaml`), paste the Neon string as `DATABASE_URL`, apply.
@@ -529,8 +536,9 @@ proposal until accepted (skipped automatically if Ollama isn't running).
 
 - **Accounts**: no password reset by email, no email verification and no two-factor login yet. Sign-up is open
   unless `SIGNUP_ENABLED=false`. Login rate limits are kept in memory, so they reset when the backend restarts.
-- **AI on a hosted server**: the AI features need a local model (Ollama), which hosting plans like Railway's
-  can't run cheaply, so `AI_ENABLED=false` hides them there. Run Steady on your own computer to use them.
+- **AI on a hosted server** uses Groq's free tier (`AI_PROVIDER=groq`): its daily allowance is shared by everyone
+  on the server, so each person gets `AI_DAILY_LIMIT_PER_USER` requests a day. On your own computer the AI runs
+  locally with Ollama instead and nothing leaves the computer.
 - **Money** tracks spending and balances you enter; it doesn't connect to banks, has no budgets yet. The AI sees money figures only when you press
   its button, and then only totals (no notes, account names or balances). Importing an export into a *different* database duplicates the starter
   money categories (they're created per database).

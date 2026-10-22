@@ -70,6 +70,17 @@ These run on the computer itself, so there's no per-request API charge and the d
 The first run after the model loads is slower (for example 22 s instead of 5 s for a daily plan).
 Timings taken while the Mac was asleep were thrown away.
 
+## Hosted AI (Groq, openai/gpt-oss-20b), measured 2026-10-21 through the live site
+
+| Feature | Time (whole request, website to answer) |
+| --- | --- |
+| Journal prompts | 0.8 s |
+| Break down a task | 1.0 s |
+| Daily plan | 0.8 s |
+| Money saving tips | 2.0 s |
+
+All four passed the app's validation on the first attempt. Locally the same features take about 1 to 20 s.
+
 ## Not measured yet
 
 - **Availability (uptime %)**: needs the hosted app and a monitor running over weeks.
